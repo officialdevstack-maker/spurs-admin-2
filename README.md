@@ -26,9 +26,18 @@ has a `users` table, do not apply this standalone migration; use the existing ta
 schema instead.
 
 The migration creates an empty table with `id`, `fullname`, `email`, `password`, `is_admin`,
-`suspended_at`, and `updated_at` columns. Passwords must be bcrypt hashes. It does not create an
-admin account; add one with a bcrypt password hash before signing in. Only active users with
-`is_admin = true` can sign in. Generate a session secret with
+`suspended_at`, and `updated_at` columns. It does not create an admin account. To create the initial
+admin, add `PANEL_ADMIN_FULLNAME`, `PANEL_ADMIN_EMAIL`, and `PANEL_ADMIN_PASSWORD` to your ignored
+`.env.local` file, then run:
+
+```sh
+npm run db:create-admin
+```
+
+The command requires a password of at least 12 characters and no more than 72 UTF-8 bytes, stores
+only a bcrypt hash, and refuses to change an account if that email already exists. Remove
+`PANEL_ADMIN_PASSWORD` from `.env.local` after it succeeds. Only active users with `is_admin = true`
+can sign in. Generate a session secret with
 `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`.
 
 Changing a password in the panel also changes it for the user's main account. Existing access tokens
