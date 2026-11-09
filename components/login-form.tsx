@@ -2,20 +2,12 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
 import { DEFAULT_CREDENTIALS } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -48,19 +40,17 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <form onSubmit={onSubmit}>
-        <CardHeader className="space-y-3 text-center">
-          <div className="mx-auto flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <ShieldCheck className="size-5" />
-          </div>
-          <CardTitle className="text-2xl">Admin Panel</CardTitle>
-          <CardDescription>Sign in to manage all subdomains</CardDescription>
-        </CardHeader>
+    <div className="flex flex-col gap-6 rounded-lg bg-card p-8 shadow-md">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-2xl font-semibold">Sign in</h2>
+        <p className="text-sm text-muted-foreground">
+          to continue to <span className="font-medium text-foreground">Admin Panel</span>
+        </p>
+      </div>
 
-        <CardContent className="mt-6 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="email">Email address</Label>
             <Input
               id="email"
               type="email"
@@ -68,44 +58,48 @@ export function LoginForm() {
               placeholder="admin@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              className="h-10 rounded-lg"
               required
             />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="password">Password</Label>
+          <div className="relative">
+            <Input
+              id="password"
+              type={show ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-10 rounded-lg pr-10"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShow((s) => !s)}
+              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-primary hover:opacity-80"
+              aria-label={show ? "Hide password" : "Show password"}
+            >
+              {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={show ? "text" : "password"}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pr-10"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShow((s) => !s)}
-                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
-                aria-label={show ? "Hide password" : "Show password"}
-              >
-                {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
-          </div>
+        {error && (
+          <p
+            role="alert"
+            className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-950/40 dark:text-red-300"
+          >
+            {error}
+          </p>
+        )}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </CardContent>
-
-        <CardFooter className="mt-6 flex flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
-            Sign in
-          </Button>
+        <div className="flex items-center justify-between pt-2">
           <button
             type="button"
-            className="text-xs text-muted-foreground hover:underline"
+            className="text-sm font-medium text-primary hover:underline"
             onClick={() => {
               setEmail(DEFAULT_CREDENTIALS.email);
               setPassword(DEFAULT_CREDENTIALS.password);
@@ -113,8 +107,12 @@ export function LoginForm() {
           >
             Use default credentials
           </button>
-        </CardFooter>
+          <Button type="submit" disabled={loading} className="h-10 rounded-lg px-6">
+            {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
+            {loading ? "Signing in…" : "Sign in"}
+          </Button>
+        </div>
       </form>
-    </Card>
+    </div>
   );
 }

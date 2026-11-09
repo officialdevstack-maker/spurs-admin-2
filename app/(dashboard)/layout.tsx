@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/components/auth-provider";
+import { DashboardSwitcher } from "@/components/dashboard-switcher";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
@@ -19,8 +20,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!ready || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="size-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -29,10 +30,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-14 items-center gap-2 border-b px-4">
+        <header className="flex h-16 items-center gap-2 bg-card px-4 shadow-sm">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-4" />
-          <h1 className="text-sm font-medium">Admin</h1>
+          <DashboardSwitcher />
         </header>
         <div className="flex-1 p-4 md:p-6">{children}</div>
       </SidebarInset>
