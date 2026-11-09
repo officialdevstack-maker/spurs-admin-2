@@ -3,7 +3,8 @@
 import * as React from "react";
 import {
   type AdminUser,
-  getStoredUser,
+  changePasswordRequest,
+  getSessionUser,
   loginRequest,
   logoutRequest,
 } from "@/lib/auth";
@@ -13,6 +14,7 @@ type AuthContextValue = {
   ready: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  changePassword: (current: string, next: string) => Promise<void>;
 };
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
@@ -23,7 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     let active = true;
-    getStoredUser()
+    getSessionUser()
       .then((storedUser) => {
         if (active) setUser(storedUser);
       })
@@ -50,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await logoutRequest();
         setUser(null);
       },
+      changePassword: changePasswordRequest,
     }),
     [user, ready],
   );

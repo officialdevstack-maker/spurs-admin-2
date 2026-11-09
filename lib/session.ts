@@ -2,17 +2,14 @@ import { SignJWT } from "jose";
 import { cookies } from "next/headers";
 
 import { getPool } from "@/lib/db";
-import { SESSION_COOKIE, SESSION_TTL_SECONDS, verifySessionToken } from "@/lib/session-token";
+import {
+  getSessionKey,
+  SESSION_COOKIE,
+  SESSION_TTL_SECONDS,
+  verifySessionToken,
+} from "@/lib/session-token";
 
 export type SessionUser = { id: number; email: string; name: string };
-
-function getSessionKey() {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret || new TextEncoder().encode(secret).length < 32) {
-    throw new Error("SESSION_SECRET must contain at least 32 bytes");
-  }
-  return new TextEncoder().encode(secret);
-}
 
 export async function createSession(id: number) {
   const token = await new SignJWT({})
@@ -40,7 +37,9 @@ export async function getAdmin(): Promise<SessionUser | null> {
   if (!token) return null;
 
   const payload = await verifySessionToken(token);
-  if (!payload || !payload.sub || !/^[1-9]\d*$/.test(payload.sub)) return null;
+  if (!payload?.sub || !/^[1-9]\d*$/.test(payload.sub)) return null;
+  const id = Number(payload.sub);
+  if (!Number.isSafeInteger(id)) return null;
 
   const { rows } = await getPool().query<{
     id: number;
@@ -49,7 +48,7 @@ export async function getAdmin(): Promise<SessionUser | null> {
   }>(
     `select id, fullname, email from users
      where id = $1 and is_admin = true and suspended_at is null`,
-    [Number(payload.sub)],
+    [id],
   );
   const user = rows[0];
   return user ? { id: Number(user.id), email: user.email, name: user.fullname } : null;

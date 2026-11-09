@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { PANEL_SESSION_COOKIE, verifyPanelSession } from "@/lib/panel-session";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/session-token";
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   try {
-    if (verifyPanelSession(request.cookies.get(PANEL_SESSION_COOKIE)?.value)) {
+    const token = request.cookies.get(SESSION_COOKIE)?.value;
+    if (token && (await verifySessionToken(token))) {
       return NextResponse.next();
     }
   } catch (error) {

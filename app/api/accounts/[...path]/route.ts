@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { accountsFetch } from "@/lib/accounts-server";
-import { PANEL_SESSION_COOKIE, verifyPanelSession } from "@/lib/panel-session";
+import { getAdmin } from "@/lib/session";
 
 const ALLOWED = [
   /^users$/,
@@ -14,12 +14,15 @@ async function handler(
   context: { params: Promise<{ path: string[] }> },
 ) {
   try {
-    if (!verifyPanelSession(request.cookies.get(PANEL_SESSION_COOKIE)?.value)) {
+    if (!(await getAdmin())) {
       return NextResponse.json({ message: "Not signed in." }, { status: 401 });
     }
   } catch (error) {
     console.error("Accounts proxy authentication is unavailable:", error);
-    return NextResponse.json({ message: "Panel authentication is not configured." }, { status: 503 });
+    return NextResponse.json(
+      { message: "Panel authentication is temporarily unavailable." },
+      { status: 503 },
+    );
   }
 
   const { path } = await context.params;

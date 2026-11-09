@@ -6,18 +6,20 @@ Set these values in an untracked `.env.local` file or in the deployment environm
 `NEXT_PUBLIC_` prefixes for credentials:
 
 ```env
-PANEL_ADMIN_EMAIL=admin@example.com
-PANEL_ADMIN_PASSWORD=replace-with-a-strong-password
-PANEL_SESSION_SECRET=replace-with-at-least-32-random-bytes
+DATABASE_URL=postgres://user:password@host:5432/database
+SESSION_SECRET=replace-with-at-least-32-random-bytes
 ACCOUNTS_API_URL=https://api.example.com
 ACCOUNTS_ADMIN_EMAIL=panel-service@example.com
 ACCOUNTS_ADMIN_PASSWORD=replace-with-the-dedicated-admin-password
 ```
 
-Generate a session secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`.
-Create the Accounts service user separately and grant it the documented admin role. Panel password
-changes are managed by updating `PANEL_ADMIN_PASSWORD` in the server environment and restarting or
-redeploying the app.
+The panel authenticates against the shared PostgreSQL `users` table. It expects `id`, `fullname`,
+`email`, `password`, `is_admin`, `suspended_at`, and `updated_at` columns, with bcrypt password
+hashes. Only active users with `is_admin = true` can sign in. Generate a session secret with
+`node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"`.
+
+Changing a password in the panel also changes it for the user's main account. Existing access tokens
+are not revoked. The Accounts API variables remain in use by the panel's Accounts API proxy.
 
 ## Getting Started
 

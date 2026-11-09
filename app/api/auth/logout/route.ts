@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { PANEL_SESSION_COOKIE } from "@/lib/panel-session";
+import { clearSession } from "@/lib/session";
 
 export async function POST() {
-  const response = NextResponse.json({ message: "Signed out." });
-  response.cookies.set(PANEL_SESSION_COOKIE, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  });
-  return response;
+  try {
+    await clearSession();
+    return NextResponse.json({ message: "Signed out." });
+  } catch (error) {
+    console.error("Could not clear admin session:", error);
+    return NextResponse.json({ message: "Could not sign out." }, { status: 500 });
+  }
 }
