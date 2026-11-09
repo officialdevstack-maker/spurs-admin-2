@@ -7,18 +7,16 @@ import {
   ChevronsUpDown,
   ExternalLink,
   Globe,
-  KeyRound,
   LogOut,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
-import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -40,11 +38,9 @@ export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
-  const [pwOpen, setPwOpen] = React.useState(false);
   const dashboard = getDashboard(pathname);
 
   return (
-    <>
       <Sidebar collapsible="icon">
         <SidebarHeader>
           <SidebarMenu>
@@ -128,15 +124,14 @@ export function AppSidebar() {
                   }
                 />
                 <DropdownMenuContent side="top" align="start" className="w-56">
-                  <DropdownMenuItem onSelect={() => setPwOpen(true)}>
-                    <KeyRound className="mr-2 size-4" />
-                    Change password
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onSelect={() => {
-                      logout();
-                      router.replace("/login");
+                    onSelect={async () => {
+                      try {
+                        await logout();
+                        router.replace("/login");
+                      } catch {
+                        toast.error("Could not sign out. Please try again.");
+                      }
                     }}
                   >
                     <LogOut className="mr-2 size-4" />
@@ -149,8 +144,5 @@ export function AppSidebar() {
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
-
-      <ChangePasswordDialog open={pwOpen} onOpenChange={setPwOpen} />
-    </>
   );
 }

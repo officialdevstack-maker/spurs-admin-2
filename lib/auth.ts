@@ -1,50 +1,46 @@
 export type AdminUser = { email: string; name: string };
 
-const CREDS_KEY = "admin_credentials";
-const SESSION_KEY = "admin_session";
+type AuthResponse = { data?: AdminUser; message?: string };
 
-export const DEFAULT_CREDENTIALS = {
-  email: "admin@example.com",
-  password: "admin123",
-};
-
-type Credentials = { email: string; password: string };
-
-function readCreds(): Credentials {
-  try {
-    const raw = localStorage.getItem(CREDS_KEY);
-    if (raw) return JSON.parse(raw) as Credentials;
-  } catch {}
-  return DEFAULT_CREDENTIALS;
+async function request<T extends AuthResponse>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    headers: { Accept: "application/json", ...init?.headers },
+    cache: "no-store",
+  });
+  const json = (await response.json().catch(() => ({}))) as T;
+  if (!response.ok) {
+    throw new Error(json.message ?? "Authentication request failed");
+  }
+  return json;
 }
 
-export function getStoredUser(): AdminUser | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as AdminUser) : null;
-  } catch {
-    return null;
+export async function getStoredUser(): Promise<AdminUser | null> {
+  const response = await fetch("/api/auth/session", {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (response.status === 401) return null;
+  const json = (await response.json().catch(() => ({}))) as AuthResponse;
+  if (!response.ok) {
+    throw new Error(json.message ?? "Could not verify panel session");
   }
+  return json.data ?? null;
 }
 
 export async function loginRequest(email: string, password: string): Promise<AdminUser> {
-  await new Promise((r) => setTimeout(r, 400));
-  const creds = readCreds();
-  if (email.trim().toLowerCase() !== creds.email || password !== creds.password) {
-    throw new Error("Invalid email or password");
-  }
-  const user: AdminUser = { email: creds.email, name: "Admin" };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-  return user;
+  const response = await request<{ data?: AdminUser }>("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.data) throw new Error("Invalid authentication response");
+  return response.data;
 }
 
-export function logoutRequest() {
-  localStorage.removeItem(SESSION_KEY);
-}
-
-export async function changePasswordRequest(current: string, next: string) {
-  await new Promise((r) => setTimeout(r, 400));
-  const creds = readCreds();
-  if (current !== creds.password) throw new Error("Current password is incorrect");
-  localStorage.setItem(CREDS_KEY, JSON.stringify({ ...creds, password: next }));
+export async function logoutRequest(): Promise<void> {
+  await request("/api/auth/logout", { method: "POST" });
 }

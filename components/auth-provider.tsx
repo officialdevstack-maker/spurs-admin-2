@@ -3,7 +3,6 @@
 import * as React from "react";
 import {
   type AdminUser,
-  changePasswordRequest,
   getStoredUser,
   loginRequest,
   logoutRequest,
@@ -13,8 +12,7 @@ type AuthContextValue = {
   user: AdminUser | null;
   ready: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
-  changePassword: (current: string, next: string) => Promise<void>;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
@@ -24,8 +22,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
-    setUser(getStoredUser());
-    setReady(true);
+    let active = true;
+    getStoredUser()
+      .then((storedUser) => {
+        if (active) setUser(storedUser);
+      })
+      .catch((error: unknown) => {
+        console.error("Could not restore panel session:", error);
+        if (active) setUser(null);
+      })
+      .finally(() => {
+        if (active) setReady(true);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const value = React.useMemo<AuthContextValue>(
@@ -35,11 +46,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login: async (email, password) => {
         setUser(await loginRequest(email, password));
       },
-      logout: () => {
-        logoutRequest();
+      logout: async () => {
+        await logoutRequest();
         setUser(null);
       },
-      changePassword: changePasswordRequest,
     }),
     [user, ready],
   );

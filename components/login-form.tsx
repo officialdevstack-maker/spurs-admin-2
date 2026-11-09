@@ -6,7 +6,6 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
-import { DEFAULT_CREDENTIALS } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -96,17 +95,7 @@ export function LoginForm() {
           </p>
         )}
 
-        <div className="flex items-center justify-between pt-2">
-          <button
-            type="button"
-            className="text-sm font-medium text-primary hover:underline"
-            onClick={() => {
-              setEmail(DEFAULT_CREDENTIALS.email);
-              setPassword(DEFAULT_CREDENTIALS.password);
-            }}
-          >
-            Use default credentials
-          </button>
+        <div className="flex justify-end pt-2">
           <Button type="submit" disabled={loading} className="h-10 rounded-lg px-6">
             {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
             {loading ? "Signing in…" : "Sign in"}
