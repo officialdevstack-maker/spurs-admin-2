@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getPool } from "@/lib/db";
 import { createSession } from "@/lib/session";
 
+
 const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 12);
 const failures = new Map<string, { count: number; resetAt: number }>();
 const MAX_FAILURES = 5;

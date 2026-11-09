@@ -1,3 +1,5 @@
+import "server-only";
+
 const TOKEN_PATH = "/api/auth/login";
 let token: string | null = null;
 let loginInProgress: Promise<string> | null = null;
@@ -37,7 +39,8 @@ async function login(): Promise<string> {
     typeof json.data === "object" &&
     json.data !== null &&
     "token" in json.data &&
-    typeof json.data.token === "string"
+    typeof json.data.token === "string" &&
+    json.data.token.length > 0
       ? json.data.token
       : null;
   if (!receivedToken) throw new Error("Accounts login returned an invalid token response");

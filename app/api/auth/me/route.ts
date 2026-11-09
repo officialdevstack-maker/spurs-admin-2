@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 
 import { getAdmin } from "@/lib/session";
 
+
+
 export async function GET() {
   try {
     const admin = await getAdmin();

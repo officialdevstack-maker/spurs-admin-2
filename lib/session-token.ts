@@ -1,4 +1,4 @@
-import { jwtVerify, type JWTPayload } from "jose";
+import { errors, jwtVerify, type JWTPayload } from "jose";
 
 export const SESSION_COOKIE = "admin_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 8;
@@ -16,7 +16,8 @@ export async function verifySessionToken(token: string): Promise<JWTPayload | nu
   try {
     const { payload } = await jwtVerify(token, key, { algorithms: ["HS256"] });
     return payload;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof errors.JOSEError) return null;
+    throw error;
   }
 }

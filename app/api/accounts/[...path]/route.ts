@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { accountsFetch } from "@/lib/accounts-server";
 import { getAdmin } from "@/lib/session";
 
+
+
 const ALLOWED = [
   /^users$/,
   /^users\/\d+$/,
