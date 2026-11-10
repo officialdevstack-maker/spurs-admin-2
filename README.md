@@ -9,8 +9,11 @@ Set these values in an untracked `.env.local` file or in the deployment environm
 DATABASE_URL=postgresql://user:password@host:5432/database
 SESSION_SECRET=replace-with-at-least-32-random-bytes
 ACCOUNTS_API_URL=https://api.example.com
-INTERNAL_SHARED_SECRET=same-value-as-on-the-accounts-backend
+ACCOUNTS_INTERNAL_SECRET=same-value-as-INTERNAL_SHARED_SECRET-on-the-accounts-backend
 ```
+
+`ACCOUNTS_API_URL` must be the accounts backend origin (without an `/api` path).
+`ACCOUNTS_INTERNAL_SECRET` must match the backend's `INTERNAL_SHARED_SECRET`.
 
 The admin panel authenticates against the PostgreSQL `users` table. To apply pending migrations from the
 `migrations` directory to the configured database, run:

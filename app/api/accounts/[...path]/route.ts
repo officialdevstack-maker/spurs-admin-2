@@ -17,11 +17,6 @@ const ALLOWED: Rule[] = [
   },
 ];
 
-// stats/* maps to /stats/*, users/* maps to /admin/users/*
-function upstreamPath(subpath: string) {
-  return subpath.startsWith("stats/") ? `/${subpath}` : `/admin/${subpath}`;
-}
-
 async function handler(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> },
@@ -55,11 +50,9 @@ async function handler(
 
   try {
     const response = await accountsFetch(
-      `${upstreamPath(subpath)}${request.nextUrl.search}`,
-      {
-        method: request.method,
-        adminEmail: request.method === "POST" ? admin.email : undefined,
-      },
+      `${subpath.startsWith("stats/") ? `/api/internal/${subpath}` : `/api/internal/admin/${subpath}`}${request.nextUrl.search}`,
+      { method: request.method },
+      admin.email,
     );
 
     const rejected = response.status === 401 || response.status === 403;
