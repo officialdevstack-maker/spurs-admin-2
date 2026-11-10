@@ -3,6 +3,7 @@ export type AdminRole = {
   name: string;
   description: string;
   dashboards: string[];
+  permissions: string[];
 };
 
 export type AdminRow = {
@@ -32,10 +33,11 @@ export const createRole = (input: {
   name: string;
   description: string;
   dashboards: string[];
+  permissions?: string[];
 }) => call("/api/admin/roles", { method: "POST", body: JSON.stringify(input) });
 export const updateRole = (
   id: number,
-  changes: { name?: string; description?: string; dashboards?: string[] },
+  changes: { name?: string; description?: string; dashboards?: string[]; permissions?: string[] },
 ) => call(`/api/admin/roles/${id}`, { method: "PATCH", body: JSON.stringify(changes) });
 export const createAdmin = (input: {
   fullname: string;

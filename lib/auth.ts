@@ -3,6 +3,7 @@ export type AdminUser = {
   name: string;
   role: string | null;
   dashboards: string[];
+  permissions: string[];
 };
 
 type AuthResponse = { user?: AdminUser; message?: string };

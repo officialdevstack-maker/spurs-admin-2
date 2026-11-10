@@ -41,8 +41,9 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const dashboard = getDashboard(pathname);
   const allowedDashboards = user?.dashboards ?? [];
+  const isSuperAdminUser = isSuperAdmin(allowedDashboards, user?.permissions);
   const visibleNav = dashboard.nav.filter(
-    (item) => !item.superOnly || isSuperAdmin(allowedDashboards),
+    (item) => !item.superOnly || isSuperAdminUser,
   );
   const sections = groupNav(visibleNav);
 

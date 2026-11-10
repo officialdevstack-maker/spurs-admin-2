@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 
 import { accountsFetch } from "@/lib/accounts-server";
+import { canAccessDashboard, hasPermission } from "@/lib/permissions";
 import { getAdmin, type SessionUser } from "@/lib/session";
 
 type Rule = { method: "GET" | "POST"; pattern: RegExp };
@@ -20,6 +21,25 @@ const ALLOWED: Rule[] = [
     pattern: /^users\/\d+\/(suspend|unsuspend|revoke-sessions|verify-email)$/,
   },
 ];
+
+function permissionFor(subpath: string, method: string): string | null {
+  if (subpath === "settings") return "accounts.settings";
+  if (method === "GET" && subpath === "users") return "accounts.view";
+  if (method === "POST" && subpath === "users") return "accounts.create";
+  if (method === "GET" && /^stats\//.test(subpath)) return "accounts.view";
+  if (method === "GET" && /^activity$/.test(subpath)) return "accounts.view";
+  if (method === "GET" && /^users\/\d+$/.test(subpath)) return "accounts.view";
+  if (method === "POST" && /^users\/\d+\/(suspend|unsuspend)$/.test(subpath)) {
+    return "accounts.suspend";
+  }
+  if (method === "POST" && /^users\/\d+\/verify-email$/.test(subpath)) {
+    return "accounts.verify";
+  }
+  if (method === "POST" && /^users\/\d+\/revoke-sessions$/.test(subpath)) {
+    return "accounts.revoke_sessions";
+  }
+  return null;
+}
 
 async function handler(
   request: NextRequest,
@@ -50,6 +70,15 @@ async function handler(
       { message: `Panel proxy: ${request.method} /${subpath} is not allowed.` },
       { status: 404 },
     );
+  }
+
+  if (!canAccessDashboard(admin.dashboards, "accounts")) {
+    return NextResponse.json({ message: "You do not have access to Accounts." }, { status: 403 });
+  }
+
+  const requiredPermission = permissionFor(subpath, request.method);
+  if (requiredPermission && !hasPermission(admin.permissions, requiredPermission)) {
+    return NextResponse.json({ message: `Missing required permission: ${requiredPermission}.` }, { status: 403 });
   }
 
   if (request.method === "POST" && request.headers.get("origin") !== request.nextUrl.origin) {

@@ -15,6 +15,7 @@ export type SessionUser = {
   name: string;
   role: string | null;
   dashboards: string[];
+  permissions: string[];
 };
 
 export async function createSession(id: number) {
@@ -55,9 +56,12 @@ export async function getAdmin(): Promise<SessionUser | null> {
     email: string;
     role_name: string | null;
     dashboards: string[] | null;
+    permissions: string[] | null;
   }>(
     `select u.id, u.fullname, u.email,
-            r.name as role_name, r.dashboards as dashboards
+            r.name as role_name,
+            coalesce(r.dashboards, '{}') as dashboards,
+            coalesce(r.permissions, '{}') as permissions
      from users u
      left join admin_roles r on r.id = u.role_id
      where u.id = $1 and u.is_admin = true and u.suspended_at is null`,
@@ -71,6 +75,7 @@ export async function getAdmin(): Promise<SessionUser | null> {
         name: user.fullname,
         role: user.role_name,
         dashboards: user.dashboards ?? [],
+        permissions: user.permissions ?? [],
       }
     : null;
 }

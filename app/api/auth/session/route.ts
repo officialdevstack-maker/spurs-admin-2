@@ -15,6 +15,7 @@ export async function GET() {
         name: admin.name,
         role: admin.role,
         dashboards: admin.dashboards,
+        permissions: admin.permissions,
       },
     });
   } catch (error) {

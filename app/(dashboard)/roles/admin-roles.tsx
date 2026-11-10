@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DASHBOARDS } from "@/lib/dashboards";
 import { createRole, listRoles, updateRole, type AdminRole } from "@/lib/admin-api";
+import { PERMISSION_CATALOG } from "@/lib/permissions";
 
 const labelClass = "text-sm font-medium";
 const editButtonClass = "h-8 rounded-md border border-border bg-background px-3 text-xs";
@@ -26,24 +27,38 @@ const dashboardOptions = DASHBOARDS.map((dashboard) => ({
   slug: dashboard.slug,
   label: dashboard.name,
 }));
+const permissionOptions = Object.entries(PERMISSION_CATALOG);
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
 
-function RoleBadges({ dashboards }: { dashboards: string[] }) {
-  if (dashboards.includes("*")) {
-    return <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">All dashboards</span>;
-  }
+function RoleBadges({ dashboards, permissions }: { dashboards: string[]; permissions: string[] }) {
+  const dashboardBadges = dashboards.includes("*") ? (
+    <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">All dashboards</span>
+  ) : (
+    dashboards.map((slug) => {
+      const label = DASHBOARDS.find((dashboard) => dashboard.slug === slug)?.name ?? slug;
+      return (
+        <span key={slug} className="rounded-full bg-muted px-2 py-0.5 text-xs">
+          {label}
+        </span>
+      );
+    })
+  );
+
+  const permissionBadges = permissions.includes("*")
+    ? [<span key="all-permissions" className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">All permissions</span>]
+    : permissions.length
+      ? permissions.map((slug) => (
+          <span key={slug} className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
+            {PERMISSION_CATALOG[slug as keyof typeof PERMISSION_CATALOG] ?? slug}
+          </span>
+        ))
+      : [<span key="none" className="rounded-full bg-muted px-2 py-0.5 text-xs">No action permissions</span>];
 
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {dashboards.map((slug) => {
-        const label = DASHBOARDS.find((dashboard) => dashboard.slug === slug)?.name ?? slug;
-        return (
-          <span key={slug} className="rounded-full bg-muted px-2 py-0.5 text-xs">
-            {label}
-          </span>
-        );
-      })}
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap gap-1.5">{dashboardBadges}</div>
+      <div className="flex flex-wrap gap-1.5">{permissionBadges}</div>
     </div>
   );
 }
@@ -69,7 +84,7 @@ export default function AdminRoles() {
     };
   }, [reload]);
 
-  async function saveRole(input: { name: string; description: string; dashboards: string[] }) {
+  async function saveRole(input: { name: string; description: string; dashboards: string[]; permissions?: string[] }) {
     try {
       if (editing) {
         await updateRole(editing.id, input);
@@ -101,12 +116,12 @@ export default function AdminRoles() {
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
       <div className="overflow-x-auto rounded-lg border bg-card">
-        <table className="w-full min-w-[700px] text-left text-sm">
+        <table className="w-full min-w-[820px] text-left text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Name</th>
               <th className="px-4 py-3 font-medium">Description</th>
-              <th className="px-4 py-3 font-medium">Dashboards</th>
+              <th className="px-4 py-3 font-medium">Access</th>
               <th className="px-4 py-3 text-right font-medium">Actions</th>
             </tr>
           </thead>
@@ -127,22 +142,26 @@ export default function AdminRoles() {
                     {role.description || "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <RoleBadges dashboards={role.dashboards} />
+                    <RoleBadges dashboards={role.dashboards} permissions={role.permissions ?? []} />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className={editButtonClass}
-                        onClick={() => {
-                          setEditing(role);
-                          setOpen(true);
-                        }}
-                      >
-                        Edit
-                      </Button>
+                      {role.name.toLowerCase() === "super admin" ? (
+                        <span className="text-xs text-muted-foreground">Protected</span>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className={editButtonClass}
+                          onClick={() => {
+                            setEditing(role);
+                            setOpen(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -180,11 +199,17 @@ function RoleDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing: AdminRole | null;
-  onSubmit: (input: { name: string; description: string; dashboards: string[] }) => Promise<void>;
+  onSubmit: (input: {
+    name: string;
+    description: string;
+    dashboards: string[];
+    permissions?: string[];
+  }) => Promise<void>;
 }) {
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [selected, setSelected] = React.useState<string[]>([]);
+  const [selectedPermissions, setSelectedPermissions] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -194,6 +219,7 @@ function RoleDialog({
     setName(editing?.name ?? "");
     setDescription(editing?.description ?? "");
     setSelected(dashboards);
+    setSelectedPermissions(editing?.permissions ?? []);
     setError(null);
   }, [editing, open]);
 
@@ -206,6 +232,12 @@ function RoleDialog({
       if (current.includes(slug)) return withoutStar.filter((value) => value !== slug);
       return [...withoutStar, slug];
     });
+  }
+
+  function togglePermission(slug: string) {
+    setSelectedPermissions((current) =>
+      current.includes(slug) ? current.filter((value) => value !== slug) : [...current, slug],
+    );
   }
 
   async function submit(e: React.FormEvent) {
@@ -228,6 +260,7 @@ function RoleDialog({
         name: name.trim(),
         description: description.trim(),
         dashboards: selected,
+        permissions: selectedPermissions,
       });
     } catch (cause) {
       setError(msg(cause));
@@ -292,6 +325,25 @@ function RoleDialog({
                     disabled={selected.includes("*") && !selected.includes(dashboard.slug)}
                   />
                   <span>{dashboard.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className={labelClass}>Action permissions</Label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {permissionOptions.map(([slug, label]) => (
+                <label key={slug} className="flex items-start gap-2 rounded-md border p-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selectedPermissions.includes(slug)}
+                    onChange={() => togglePermission(slug)}
+                  />
+                  <span>
+                    <span className="block font-medium">{label}</span>
+                    <span className="text-xs text-muted-foreground">{slug}</span>
+                  </span>
                 </label>
               ))}
             </div>

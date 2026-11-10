@@ -45,9 +45,17 @@ export async function POST(request: Request) {
       password: string;
       is_admin: boolean;
       suspended_at: Date | null;
+      role_name: string | null;
+      dashboards: string[] | null;
+      permissions: string[] | null;
     }>(
-      `select id, fullname, email, password, is_admin, suspended_at
-       from users where lower(email) = $1`,
+      `select u.id, u.fullname, u.email, u.password, u.is_admin, u.suspended_at,
+              r.name as role_name,
+              coalesce(r.dashboards, '{}') as dashboards,
+              coalesce(r.permissions, '{}') as permissions
+       from users u
+       left join admin_roles r on r.id = u.role_id
+       where lower(u.email) = $1`,
       [email],
     );
     const user = rows[0];
@@ -65,7 +73,13 @@ export async function POST(request: Request) {
     failures.delete(key);
     await createSession(Number(user.id));
     return NextResponse.json({
-      user: { email: user.email, name: user.fullname },
+      user: {
+        email: user.email,
+        name: user.fullname,
+        role: user.role_name,
+        dashboards: user.dashboards ?? [],
+        permissions: user.permissions ?? [],
+      },
     });
   } catch (error) {
     console.error("Admin login is unavailable:", error);

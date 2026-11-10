@@ -3,17 +3,21 @@ CREATE TABLE admin_roles (
   name text NOT NULL,
   description text NOT NULL DEFAULT '',
   dashboards text[] NOT NULL DEFAULT '{}',
+  permissions text[] NOT NULL DEFAULT '{}',
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE UNIQUE INDEX admin_roles_name_lower_unique ON admin_roles (lower(name));
 
+ALTER TABLE admin_roles
+  ADD COLUMN IF NOT EXISTS permissions text[] NOT NULL DEFAULT '{}';
+
 ALTER TABLE users
   ADD COLUMN role_id integer REFERENCES admin_roles(id) ON DELETE RESTRICT;
 
 -- '*' means every dashboard (plus managing admins and roles)
-INSERT INTO admin_roles (name, description, dashboards)
-VALUES ('Super Admin', 'Full access to every dashboard, admins and roles', '{*}');
+INSERT INTO admin_roles (name, description, dashboards, permissions)
+VALUES ('Super Admin', 'Full access to every dashboard, admins and roles', '{*}', '{*}');
 
 UPDATE users
 SET role_id = (SELECT id FROM admin_roles WHERE lower(name) = 'super admin')
