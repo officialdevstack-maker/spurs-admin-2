@@ -53,6 +53,10 @@ export type UserActivity = {
   createdAt: string;
 };
 
+export type ActivityEntry = UserActivity & {
+  user: { id: number; fullname: string; email: string };
+};
+
 export type UserDetail = {
   user: ApiUser;
   devices: UserDevice[];
@@ -77,6 +81,11 @@ export async function getActiveUsersChart(days = 30): Promise<ActiveUsersChartDa
   const res = await api<ActiveUsersChartData>("/stats/active-users-chart", {
     query: { days },
   });
+  return res.data;
+}
+
+export async function listActivity(limit = 10): Promise<ActivityEntry[]> {
+  const res = await api<ActivityEntry[]>("/activity", { query: { limit } });
   return res.data;
 }
 

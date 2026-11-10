@@ -13,6 +13,7 @@ const ALLOWED: Rule[] = [
   { method: "POST", pattern: /^settings$/ },
   { method: "GET", pattern: /^users$/ },
   { method: "POST", pattern: /^users$/ },
+  { method: "GET", pattern: /^activity$/ },
   { method: "GET", pattern: /^users\/\d+$/ },
   {
     method: "POST",

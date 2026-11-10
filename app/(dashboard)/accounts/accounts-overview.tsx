@@ -17,12 +17,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   getActiveUsersChart,
   getUserStats,
+  listActivity,
   listUsers,
   type ActiveUsersChartData,
+  type ActivityEntry,
   type ApiUser,
   type UserStats,
 } from "@/lib/accounts-api";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime, formatRelative } from "@/lib/format";
 
 const RANGES = [7, 14, 30, 90] as const;
 
@@ -32,12 +34,19 @@ type Failure = { days: number; message: string };
 const errorMessage = (cause: unknown) =>
   cause instanceof Error ? cause.message : "Something went wrong.";
 
+const humanize = (event: string) => {
+  const text = event.replace(/[_.\-]+/g, " ").trim();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
 export default function AccountsOverviewPage() {
   const [days, setDays] = React.useState<number>(30);
   const [snapshot, setSnapshot] = React.useState<Snapshot | null>(null);
   const [failure, setFailure] = React.useState<Failure | null>(null);
   const [recent, setRecent] = React.useState<ApiUser[] | null>(null);
   const [recentError, setRecentError] = React.useState(false);
+  const [activity, setActivity] = React.useState<ActivityEntry[] | null>(null);
+  const [activityError, setActivityError] = React.useState(false);
 
   React.useEffect(() => {
     let active = true;
@@ -61,6 +70,13 @@ export default function AccountsOverviewPage() {
       })
       .catch(() => {
         if (active) setRecentError(true);
+      });
+    listActivity(8)
+      .then((rows) => {
+        if (active) setActivity(rows);
+      })
+      .catch(() => {
+        if (active) setActivityError(true);
       });
     return () => {
       active = false;
@@ -117,26 +133,86 @@ export default function AccountsOverviewPage() {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {stats.map(({ label, value, icon: Icon, href }) => (
-          <Link key={label} href={href}>
-            <Card className="transition-colors hover:bg-muted/50">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between text-sm font-medium">
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="self-start lg:col-span-1">
+          <CardHeader>
+            <CardTitle>Users</CardTitle>
+            <CardDescription>Totals for the selected period.</CardDescription>
+          </CardHeader>
+          <CardContent className="divide-y">
+            {stats.map(({ label, value, icon: Icon, href }) => (
+              <Link
+                key={label}
+                href={href}
+                className="flex items-center justify-between gap-4 py-3 transition-colors first:pt-0 last:pb-0 hover:text-primary"
+              >
+                <span className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <Icon className="size-4" />
                   {label}
-                  <Icon className="size-4 text-muted-foreground" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+                </span>
                 {loading ? (
-                  <Skeleton className="h-8 w-16" />
+                  <Skeleton className="h-7 w-12" />
                 ) : (
-                  <p className="text-3xl font-semibold tabular-nums">{value ?? "—"}</p>
+                  <span className="text-2xl font-semibold tabular-nums text-foreground">
+                    {value ?? "—"}
+                  </span>
                 )}
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Activity log</CardTitle>
+            <CardDescription>Latest events across all accounts.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {activity === null && !activityError ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <Skeleton key={index} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : activity?.length ? (
+              <ol className="relative space-y-4 border-l pl-5">
+                {activity.map((item) => (
+                  <li key={item.id} className="relative">
+                    <span className="absolute -left-[25px] top-1.5 size-2 rounded-full bg-primary" />
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">
+                          {humanize(item.event)}
+                          <span className="font-normal text-muted-foreground"> · </span>
+                          <Link
+                            href={`/accounts/list/${item.user.id}`}
+                            className="font-normal hover:underline"
+                          >
+                            {item.user.fullname}
+                          </Link>
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[item.deviceName, item.ipAddress].filter(Boolean).join(" · ") ||
+                            item.user.email}
+                        </p>
+                      </div>
+                      <span
+                        className="text-xs text-muted-foreground"
+                        title={formatDateTime(item.createdAt)}
+                      >
+                        {formatRelative(item.createdAt)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {activityError ? "Activity could not be loaded." : "No activity yet."}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -164,7 +240,7 @@ export default function AccountsOverviewPage() {
           <CardDescription>The five newest accounts.</CardDescription>
         </CardHeader>
         <CardContent className="divide-y">
-          {loading ? (
+          {recent === null && !recentError ? (
             Array.from({ length: 5 }, (_, index) => (
               <Skeleton key={index} className="my-2 h-10 w-full" />
             ))
