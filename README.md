@@ -17,6 +17,10 @@ ACCOUNTS_INTERNAL_SECRET=same-value-as-INTERNAL_SHARED_SECRET-on-the-accounts-ba
 For HTTP testing with a production build, set `SESSION_COOKIE_INSECURE=true` in `.env.local`.
 Never enable this setting in production behind HTTPS.
 
+`APP_ORIGIN` must be the admin panel's public origin (scheme and host, without a path). It is
+used to validate state-changing request origins; configure it when the app is behind a reverse
+proxy.
+
 `ACCOUNTS_API_URL` must be the accounts backend origin (without an `/api` path).
 `ACCOUNTS_INTERNAL_SECRET` must match the backend's `INTERNAL_SHARED_SECRET`.
 The Accounts dashboard calls the backend's `/api/internal/...` endpoints through a

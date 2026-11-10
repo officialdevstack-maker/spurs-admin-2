@@ -31,6 +31,12 @@ export async function POST(request: Request) {
     const description = typeof body?.description === "string" ? body.description.trim() : "";
     const dashboardValues = Array.isArray(body?.dashboards) ? body.dashboards : [];
     const permissionValues = Array.isArray(body?.permissions) ? body.permissions : [];
+    if (body?.dashboards !== undefined && !Array.isArray(body.dashboards)) {
+      return NextResponse.json({ message: "Invalid dashboards." }, { status: 422 });
+    }
+    if (body?.permissions !== undefined && !Array.isArray(body.permissions)) {
+      return NextResponse.json({ message: "Invalid permissions." }, { status: 422 });
+    }
     if (dashboardValues.some((value) => typeof value !== "string" || !isDashboardSlug(value))) {
       return NextResponse.json({ message: "Unknown dashboard." }, { status: 422 });
     }

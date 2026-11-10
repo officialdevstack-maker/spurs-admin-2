@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { PoolClient } from "pg";
 
 import { getPool } from "@/lib/db";
 import { requirePermission } from "@/lib/admin-guard";
@@ -10,7 +11,7 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  let client: Awaited<ReturnType<ReturnType<typeof getPool>["connect"]>> | null = null;
+  let client: PoolClient | null = null;
   let transactionStarted = false;
   try {
     const guard = await requirePermission(request, "admins.manage");

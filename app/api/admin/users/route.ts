@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
+import type { PoolClient } from "pg";
 
 import { getPool } from "@/lib/db";
 import { requirePermission } from "@/lib/admin-guard";
@@ -24,6 +25,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  let client: PoolClient | null = null;
+  let transactionStarted = false;
   try {
     const guard = await requirePermission(request, "admins.manage");
     if ("error" in guard) return guard.error;
@@ -50,41 +53,62 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Choose a role." }, { status: 422 });
     }
 
-    const { rows: roleRows } = await getPool().query<{
+    const hash = await bcrypt.hash(password, 12);
+    client = await getPool().connect();
+    await client.query("BEGIN");
+    transactionStarted = true;
+
+    const { rows: roleRows } = await client.query<{
       dashboards: string[];
       permissions: string[];
     }>(
       `select dashboards, coalesce(permissions, '{}') as permissions
-       from admin_roles where id = $1`,
+       from admin_roles where id = $1 for share`,
       [roleId],
     );
     if (!roleRows.length) {
+      await client.query("ROLLBACK");
+      transactionStarted = false;
       return NextResponse.json({ message: "Role not found." }, { status: 422 });
     }
     if (!canGrant(guard.admin, roleRows[0])) {
+      await client.query("ROLLBACK");
+      transactionStarted = false;
       return NextResponse.json(
         { message: "You can't assign a role with more access than you have." },
         { status: 403 },
       );
     }
 
-    const hash = await bcrypt.hash(password, 12);
-    const { rows } = await getPool().query(
+    const { rows } = await client.query(
       `insert into users (fullname, email, password, is_admin, role_id)
-       select $1, $2, $3, true, r.id from admin_roles r where r.id = $4
+       values ($1, $2, $3, true, $4)
        on conflict do nothing
        returning id`,
       [fullname, email, hash, roleId],
     );
     if (!rows.length) {
+      await client.query("ROLLBACK");
+      transactionStarted = false;
       return NextResponse.json(
-        { message: "Email already exists or role not found." },
+        { message: "Email already exists." },
         { status: 409 },
       );
     }
+    await client.query("COMMIT");
+    transactionStarted = false;
     return NextResponse.json({ message: "Admin created." }, { status: 201 });
   } catch (error) {
+    if (transactionStarted && client) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Could not roll back admin creation:", rollbackError);
+      }
+    }
     console.error("Could not create admin:", error);
     return NextResponse.json({ message: "Could not create admin." }, { status: 503 });
+  } finally {
+    client?.release();
   }
 }

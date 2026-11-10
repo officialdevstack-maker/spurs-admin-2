@@ -4,6 +4,7 @@ import * as React from "react";
 import { Loader2, Plus, ShieldCheck, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 
+import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,11 +25,17 @@ import {
   type AdminRole,
   type AdminRow,
 } from "@/lib/admin-api";
+import { canGrant } from "@/lib/permissions";
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong.");
 const selectClass = "h-8 w-full rounded-lg border border-input bg-background px-2.5 text-sm";
 
 export default function AdminUsers() {
+  const { user } = useAuth();
+  const actor = {
+    dashboards: user?.dashboards ?? [],
+    permissions: user?.permissions ?? [],
+  };
   const [admins, setAdmins] = React.useState<AdminRow[] | null>(null);
   const [roles, setRoles] = React.useState<AdminRole[]>([]);
   const [currentId, setCurrentId] = React.useState<number | null>(null);
@@ -36,6 +43,7 @@ export default function AdminUsers() {
   const [busy, setBusy] = React.useState<number | null>(null);
   const [open, setOpen] = React.useState(false);
   const [reload, setReload] = React.useState(0);
+  const assignableRoles = roles.filter((role) => canGrant(actor, role));
 
   React.useEffect(() => {
     let active = true;
@@ -73,7 +81,7 @@ export default function AdminUsers() {
           <h2 className="text-2xl font-semibold tracking-tight">Admin users</h2>
           <p className="text-sm text-muted-foreground">Manage who can sign in to this panel.</p>
         </div>
-        <Button onClick={() => setOpen(true)} disabled={!roles.length}>
+        <Button onClick={() => setOpen(true)} disabled={!assignableRoles.length}>
           <Plus className="mr-2 size-4" /> New admin
         </Button>
       </div>
@@ -102,6 +110,8 @@ export default function AdminUsers() {
             ) : admins?.length ? (
               admins.map((a) => {
                 const self = a.id === currentId;
+                const currentRole = roles.find((role) => role.id === a.roleId);
+                const canManage = !currentRole || canGrant(actor, currentRole);
                 return (
                   <tr key={a.id}>
                     <td className="px-4 py-3">
@@ -116,9 +126,11 @@ export default function AdminUsers() {
                         aria-label={`Role for ${a.fullname}`}
                         className={selectClass + " max-w-48"}
                         value={a.roleId ?? ""}
-                        disabled={self || busy === a.id}
+                        disabled={self || busy === a.id || !canManage}
                         onChange={(e) => {
-                          const nextRole = roles.find((role) => role.id === Number(e.target.value));
+                          const nextRole = assignableRoles.find(
+                            (role) => role.id === Number(e.target.value),
+                          );
                           if (
                             !nextRole ||
                             !window.confirm(`Change ${a.fullname}'s role to "${nextRole.name}"?`)
@@ -129,11 +141,17 @@ export default function AdminUsers() {
                         }}
                       >
                         {a.roleId === null && <option value="">No role</option>}
-                        {roles.map((r) => (
+                        {roles
+                          .filter(
+                            (role) =>
+                              role.id === a.roleId ||
+                              assignableRoles.some((assignable) => assignable.id === role.id),
+                          )
+                          .map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name}
                           </option>
-                        ))}
+                          ))}
                       </select>
                     </td>
                     <td className="px-4 py-3">
@@ -149,7 +167,7 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end">
-                        {!self && (
+                        {!self && canManage && (
                           <Button
                             size="sm"
                             variant={a.suspendedAt ? "outline" : "destructive"}
@@ -186,9 +204,10 @@ export default function AdminUsers() {
       </div>
 
       <NewAdminDialog
+        key={open ? "open" : "closed"}
         open={open}
         onOpenChange={setOpen}
-        roles={roles}
+        roles={assignableRoles}
         onCreated={() => setReload((v) => v + 1)}
       />
     </div>
@@ -210,17 +229,10 @@ function NewAdminDialog({
     fullname: "",
     email: "",
     password: "",
-    roleId: "",
+    roleId: roles[0]?.id ? String(roles[0].id) : "",
   });
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (open) {
-      setForm({ fullname: "", email: "", password: "", roleId: roles[0]?.id ? String(roles[0].id) : "" });
-      setError(null);
-    }
-  }, [open, roles]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
