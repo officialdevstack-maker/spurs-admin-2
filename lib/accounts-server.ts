@@ -1,4 +1,8 @@
 ﻿import "server-only";
+import { createHash } from "node:crypto";
+
+const fingerprint = (value: string) =>
+  `${createHash("sha256").update(value).digest("hex").slice(0, 8)} (len ${value.length})`;
 
 function getBaseUrl() {
   const value = process.env.ACCOUNTS_API_URL;
@@ -15,7 +19,7 @@ export async function accountsFetch(
   init: RequestInit = {},
   adminEmail?: string,
 ) {
-  const secret = process.env.ACCOUNTS_INTERNAL_SECRET;
+  const secret = process.env.ACCOUNTS_INTERNAL_SECRET?.trim();
   if (!secret) throw new Error("ACCOUNTS_INTERNAL_SECRET is not configured");
 
   const headers = new Headers(init.headers);
@@ -34,7 +38,7 @@ export async function accountsFetch(
   if (process.env.NODE_ENV !== "production" && !response.ok) {
     const detail = (await response.clone().text().catch(() => "")).slice(0, 300);
     console.error(
-      `[accounts] ${init.method ?? "GET"} ${target.toString()} -> ${response.status} ${detail}`,
+      `[accounts] ${init.method ?? "GET"} ${target.toString()} -> ${response.status} ${detail} | sent secret ${fingerprint(secret)}`,
     );
   }
 
