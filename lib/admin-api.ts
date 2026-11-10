@@ -28,6 +28,15 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 export const listAdmins = () =>
   call<{ data: AdminRow[]; currentId: number }>("/api/admin/users");
 export const listRoles = () => call<{ data: AdminRole[] }>("/api/admin/roles");
+export const createRole = (input: {
+  name: string;
+  description: string;
+  dashboards: string[];
+}) => call("/api/admin/roles", { method: "POST", body: JSON.stringify(input) });
+export const updateRole = (
+  id: number,
+  changes: { name?: string; description?: string; dashboards?: string[] },
+) => call(`/api/admin/roles/${id}`, { method: "PATCH", body: JSON.stringify(changes) });
 export const createAdmin = (input: {
   fullname: string;
   email: string;
