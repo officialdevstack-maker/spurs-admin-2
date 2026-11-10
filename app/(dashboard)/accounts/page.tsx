@@ -1,9 +1,11 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import Link from "next/link";
 import { ShieldAlert, UserCheck, Users } from "lucide-react";
 
+import { ActiveUsersChart } from "@/components/active-users-chart";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -12,59 +14,79 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { listUsers, type ApiUser } from "@/lib/accounts-api";
+import {
+  getActiveUsersChart,
+  getUserStats,
+  listUsers,
+  type ActiveUsersChartData,
+  type ApiUser,
+  type UserStats,
+} from "@/lib/accounts-api";
+import { formatDate } from "@/lib/format";
 
-type Overview = { total: number; suspended: number; recent: ApiUser[] };
+const RANGES = [7, 14, 30, 90] as const;
+
+type Snapshot = { days: number; stats: UserStats; chart: ActiveUsersChartData };
+type Failure = { days: number; message: string };
+
+const errorMessage = (cause: unknown) =>
+  cause instanceof Error ? cause.message : "Something went wrong.";
 
 export default function AccountsOverviewPage() {
-  const [data, setData] = React.useState<Overview | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [days, setDays] = React.useState<number>(30);
+  const [snapshot, setSnapshot] = React.useState<Snapshot | null>(null);
+  const [failure, setFailure] = React.useState<Failure | null>(null);
+  const [recent, setRecent] = React.useState<ApiUser[] | null>(null);
+  const [recentError, setRecentError] = React.useState(false);
 
   React.useEffect(() => {
     let active = true;
-
-    Promise.all([
-      listUsers({ per_page: 5 }),
-      listUsers({ status: "suspended", per_page: 1 }),
-    ])
-      .then(([all, suspended]) => {
-        if (!all.meta || !suspended.meta) {
-          throw new Error("Accounts service response is missing pagination metadata.");
-        }
-        if (active) {
-          setData({
-            total: all.meta.total,
-            suspended: suspended.meta.total,
-            recent: all.data,
-          });
-        }
+    Promise.all([getUserStats(days), getActiveUsersChart(days)])
+      .then(([stats, chart]) => {
+        if (active) setSnapshot({ days, stats, chart });
       })
       .catch((cause: unknown) => {
-        if (active) {
-          setError(cause instanceof Error ? cause.message : "Something went wrong.");
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+        if (active) setFailure({ days, message: errorMessage(cause) });
       });
+    return () => {
+      active = false;
+    };
+  }, [days]);
 
+  React.useEffect(() => {
+    let active = true;
+    listUsers({ per_page: 5 })
+      .then((res) => {
+        if (active) setRecent(res.data);
+      })
+      .catch(() => {
+        if (active) setRecentError(true);
+      });
     return () => {
       active = false;
     };
   }, []);
 
+  const current = snapshot?.days === days ? snapshot : null;
+  const error = failure?.days === days ? failure.message : null;
+  const loading = !current && !error;
+
   const stats = [
-    { label: "Total users", value: data?.total, icon: Users, href: "/users" },
     {
-      label: "Active",
-      value: data ? data.total - data.suspended : undefined,
+      label: "Total users",
+      value: current?.stats.totalUsers,
+      icon: Users,
+      href: "/users",
+    },
+    {
+      label: `Active (last ${days} days)`,
+      value: current?.stats.activeUsers,
       icon: UserCheck,
       href: "/users",
     },
     {
       label: "Suspended",
-      value: data?.suspended,
+      value: current?.stats.suspendedUsers,
       icon: ShieldAlert,
       href: "/users?status=suspended",
     },
@@ -72,11 +94,25 @@ export default function AccountsOverviewPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Accounts</h2>
-        <p className="text-sm text-muted-foreground">
-          Overview of users on the accounts service.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Accounts</h2>
+          <p className="text-sm text-muted-foreground">
+            Overview of users on the accounts service.
+          </p>
+        </div>
+        <div className="flex gap-1">
+          {RANGES.map((range) => (
+            <Button
+              key={range}
+              size="sm"
+              variant={range === days ? "default" : "outline"}
+              onClick={() => setDays(range)}
+            >
+              {range}d
+            </Button>
+          ))}
+        </div>
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -95,15 +131,32 @@ export default function AccountsOverviewPage() {
                 {loading ? (
                   <Skeleton className="h-8 w-16" />
                 ) : (
-                  <p className="text-3xl font-semibold tabular-nums">
-                    {value ?? "—"}
-                  </p>
+                  <p className="text-3xl font-semibold tabular-nums">{value ?? "—"}</p>
                 )}
               </CardContent>
             </Card>
           </Link>
         ))}
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Daily active users</CardTitle>
+          <CardDescription>
+            Distinct users who signed in each day. Users on long-lived sessions only count
+            on days they sign in.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : current ? (
+            <ActiveUsersChart points={current.chart.points} />
+          ) : (
+            <p className="text-sm text-muted-foreground">Chart could not be loaded.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -115,8 +168,8 @@ export default function AccountsOverviewPage() {
             Array.from({ length: 5 }, (_, index) => (
               <Skeleton key={index} className="my-2 h-10 w-full" />
             ))
-          ) : data?.recent.length ? (
-            data.recent.map((user) => (
+          ) : recent?.length ? (
+            recent.map((user) => (
               <div
                 key={user.id}
                 className="flex items-center justify-between gap-4 py-2 text-sm"
@@ -126,17 +179,15 @@ export default function AccountsOverviewPage() {
                   <p className="truncate text-xs text-muted-foreground">{user.email}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-                  {user.suspendedAt && (
-                    <span className="text-destructive">Suspended</span>
-                  )}
+                  {user.suspendedAt && <span className="text-destructive">Suspended</span>}
                   {!user.isVerified && <span>Unverified</span>}
-                  <span>{new Date(user.createdAt).toLocaleDateString()}</span>
+                  <span>{formatDate(user.createdAt)}</span>
                 </div>
               </div>
             ))
           ) : (
             <p className="py-2 text-sm text-muted-foreground">
-              {error ? "Recent signups could not be loaded." : "No signups found."}
+              {recentError ? "Recent signups could not be loaded." : "No signups found."}
             </p>
           )}
         </CardContent>

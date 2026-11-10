@@ -1,82 +1,37 @@
-import "server-only";
+﻿import "server-only";
 
-const TOKEN_PATH = "/api/auth/login";
-let token: string | null = null;
-let loginInProgress: Promise<string> | null = null;
-
-function getBaseUrl() {
+function getConfig() {
   const value = process.env.ACCOUNTS_API_URL;
-  console.log({value})
+  const secret = process.env.INTERNAL_SHARED_SECRET;
   if (!value) throw new Error("ACCOUNTS_API_URL is not configured");
-  const url = new URL(value);
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
+  if (!secret) throw new Error("INTERNAL_SHARED_SECRET is not configured");
+
+  const base = new URL(value);
+  if (base.protocol !== "https:" && base.protocol !== "http:") {
     throw new Error("ACCOUNTS_API_URL must use HTTP or HTTPS");
   }
-  return url;
+  return { base, secret };
 }
 
-async function login(): Promise<string> {
-  const email = process.env.ACCOUNTS_ADMIN_EMAIL;
-  const password = process.env.ACCOUNTS_ADMIN_PASSWORD;
-  if (!email || !password) {
-    throw new Error("Accounts admin credentials are not configured");
-  }
+/**
+ * Calls the accounts backend's internal admin API.
+ * `path` is relative to /api/internal, e.g. "/stats/users?days=30".
+ */
+export async function accountsFetch(
+  path: string,
+  init: RequestInit & { adminEmail?: string } = {},
+) {
+  const { base, secret } = getConfig();
+  const { adminEmail, ...rest } = init;
 
-  const response = await fetch(new URL(TOKEN_PATH, getBaseUrl()), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ email, password }),
+  const headers = new Headers(rest.headers);
+  headers.set("Accept", "application/json");
+  headers.set("x-internal-secret", secret);
+  if (adminEmail) headers.set("x-admin-email", adminEmail);
+
+  return fetch(new URL(`/api/internal${path}`, base), {
+    ...rest,
+    headers,
     cache: "no-store",
   });
-  const json: unknown = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error("Accounts login failed");
-  }
-
-  const receivedToken =
-    typeof json === "object" &&
-    json !== null &&
-    "data" in json &&
-    typeof json.data === "object" &&
-    json.data !== null &&
-    "token" in json.data &&
-    typeof json.data.token === "string" &&
-    json.data.token.length > 0
-      ? json.data.token
-      : null;
-  if (!receivedToken) throw new Error("Accounts login returned an invalid token response");
-
-  token = receivedToken;
-  return receivedToken;
-}
-
-function getToken() {
-  if (token) return Promise.resolve(token);
-  if (!loginInProgress) {
-    loginInProgress = login().finally(() => {
-      loginInProgress = null;
-    });
-  }
-  return loginInProgress;
-}
-
-export async function accountsFetch(path: string, init: RequestInit = {}) {
-  const baseUrl = getBaseUrl();
-  const send = async (value: string) => {
-    const headers = new Headers(init.headers);
-    headers.set("Accept", "application/json");
-    headers.set("Authorization", `Bearer ${value}`);
-    return fetch(new URL(path, baseUrl), {
-      ...init,
-      headers,
-      cache: "no-store",
-    });
-  };
-
-  let response = await send(await getToken());
-  if (response.status === 401) {
-    token = null;
-    response = await send(await login());
-  }
-  return response;
 }
