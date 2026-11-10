@@ -1,0 +1,244 @@
+"use client";
+
+import * as React from "react";
+import { ChevronLeft, ChevronRight, KeyRound, Search, ShieldCheck, ShieldOff } from "lucide-react";
+
+import { UserBadges } from "@/components/user-badges";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  listUsers,
+  revokeUserSessions,
+  suspendUser,
+  unsuspendUser,
+  verifyUserEmail,
+  type ApiUser,
+  type UserListResponse,
+} from "@/lib/accounts-api";
+import { formatDate } from "@/lib/format";
+
+type StatusFilter = "all" | "suspended";
+type Notice = { kind: "success" | "error"; message: string };
+
+const errorMessage = (cause: unknown) =>
+  cause instanceof Error ? cause.message : "Something went wrong.";
+
+export default function AccountsList({ initialStatus }: { initialStatus: StatusFilter }) {
+  const [status, setStatus] = React.useState<StatusFilter>(initialStatus);
+  const [searchInput, setSearchInput] = React.useState("");
+  const [search, setSearch] = React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [result, setResult] = React.useState<UserListResponse | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<Notice | null>(null);
+  const [busyUser, setBusyUser] = React.useState<number | null>(null);
+  const [reload, setReload] = React.useState(0);
+
+  React.useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    listUsers({
+      page,
+      per_page: 15,
+      search: search || undefined,
+      status: status === "suspended" ? "suspended" : undefined,
+    })
+      .then((response) => {
+        if (active) setResult(response);
+      })
+      .catch((cause: unknown) => {
+        if (active) setError(errorMessage(cause));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [page, reload, search, status]);
+
+  async function performAction(user: ApiUser, action: "suspend" | "unsuspend" | "verify" | "revoke") {
+    const prompts = {
+      suspend: `Suspend ${user.fullname}'s account?`,
+      revoke: `Sign ${user.fullname} out of all devices and apps?`,
+    };
+    if ((action === "suspend" || action === "revoke") && !window.confirm(prompts[action])) return;
+
+    setBusyUser(user.id);
+    setNotice(null);
+    try {
+      if (action === "suspend") await suspendUser(user.id);
+      if (action === "unsuspend") await unsuspendUser(user.id);
+      if (action === "verify") await verifyUserEmail(user.id);
+      if (action === "revoke") await revokeUserSessions(user.id);
+      setNotice({ kind: "success", message: "Account updated." });
+      setReload((value) => value + 1);
+    } catch (cause) {
+      setNotice({ kind: "error", message: errorMessage(cause) });
+    } finally {
+      setBusyUser(null);
+    }
+  }
+
+  const users = result?.data ?? [];
+  const meta = result?.meta;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold tracking-tight">Accounts</h2>
+        <p className="text-sm text-muted-foreground">
+          Search and manage user accounts on the accounts service.
+        </p>
+      </div>
+
+      <form
+        className="flex flex-col gap-3 sm:flex-row"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setPage(1);
+          setSearch(searchInput.trim());
+        }}
+      >
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            aria-label="Search accounts"
+            className="pl-9"
+            placeholder="Search name or email"
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+          />
+        </div>
+        <select
+          aria-label="Account status"
+          className="h-8 rounded-lg border border-input bg-background px-2.5 text-sm"
+          value={status}
+          onChange={(event) => {
+            setPage(1);
+            setStatus(event.target.value as StatusFilter);
+          }}
+        >
+          <option value="all">All accounts</option>
+          <option value="suspended">Suspended</option>
+        </select>
+        <Button type="submit">Search</Button>
+      </form>
+
+      {notice && (
+        <p
+          role="status"
+          className={notice.kind === "error" ? "text-sm text-destructive" : "text-sm text-muted-foreground"}
+        >
+          {notice.message}
+        </p>
+      )}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
+      <div className="overflow-x-auto rounded-lg border">
+        <table className="w-full min-w-[860px] text-left text-sm">
+          <thead className="bg-muted/50 text-xs text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 font-medium">Account</th>
+              <th className="px-4 py-3 font-medium">Type</th>
+              <th className="px-4 py-3 font-medium">Status</th>
+              <th className="px-4 py-3 font-medium">Created</th>
+              <th className="px-4 py-3 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {loading ? (
+              <tr><td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>Loading accounts…</td></tr>
+            ) : users.length ? (
+              users.map((user) => (
+                <tr key={user.id}>
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{user.fullname}</p>
+                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                    {user.phone && <p className="text-xs text-muted-foreground">{user.phone}</p>}
+                  </td>
+                  <td className="px-4 py-3 capitalize">{user.accountType}</td>
+                  <td className="px-4 py-3"><UserBadges user={user} /></td>
+                  <td className="px-4 py-3 text-muted-foreground">{formatDate(user.createdAt)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-1">
+                      {!user.isVerified && (
+                        <Button
+                          aria-label={`Verify email for ${user.fullname}`}
+                          disabled={busyUser === user.id}
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void performAction(user, "verify")}
+                        >
+                          <ShieldCheck /> Verify
+                        </Button>
+                      )}
+                      {!user.isAdmin && (
+                        <Button
+                          aria-label={`${user.suspendedAt ? "Unsuspend" : "Suspend"} ${user.fullname}`}
+                          disabled={busyUser === user.id}
+                          size="sm"
+                          variant={user.suspendedAt ? "outline" : "destructive"}
+                          onClick={() => void performAction(user, user.suspendedAt ? "unsuspend" : "suspend")}
+                        >
+                          <ShieldOff /> {user.suspendedAt ? "Restore" : "Suspend"}
+                        </Button>
+                      )}
+                      <Button
+                        aria-label={`Revoke sessions for ${user.fullname}`}
+                        disabled={busyUser === user.id}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void performAction(user, "revoke")}
+                      >
+                        <KeyRound /> Revoke sessions
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td className="px-4 py-8 text-center text-muted-foreground" colSpan={5}>
+                  {error ? "Accounts could not be loaded." : "No accounts found."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center justify-between gap-4 text-sm">
+        <p className="text-muted-foreground">
+          {meta ? `${meta.from ?? 0}–${meta.to ?? 0} of ${meta.total}` : ""}
+        </p>
+        <div className="flex gap-2">
+          <Button
+            aria-label="Previous page"
+            disabled={loading || page <= 1}
+            size="sm"
+            variant="outline"
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
+          >
+            <ChevronLeft /> Previous
+          </Button>
+          <span className="self-center text-muted-foreground">
+            Page {meta?.currentPage ?? page} of {meta?.lastPage ?? 1}
+          </span>
+          <Button
+            aria-label="Next page"
+            disabled={loading || !meta || page >= meta.lastPage}
+            size="sm"
+            variant="outline"
+            onClick={() => setPage((value) => value + 1)}
+          >
+            Next <ChevronRight />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

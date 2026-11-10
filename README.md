@@ -8,9 +8,13 @@ Set these values in an untracked `.env.local` file or in the deployment environm
 ```env
 DATABASE_URL=postgresql://user:password@host:5432/database
 SESSION_SECRET=replace-with-at-least-32-random-bytes
+SESSION_COOKIE_INSECURE=false
 ACCOUNTS_API_URL=https://api.example.com
 ACCOUNTS_INTERNAL_SECRET=same-value-as-INTERNAL_SHARED_SECRET-on-the-accounts-backend
 ```
+
+For HTTP testing with a production build, set `SESSION_COOKIE_INSECURE=true` in `.env.local`.
+Never enable this setting in production behind HTTPS.
 
 `ACCOUNTS_API_URL` must be the accounts backend origin (without an `/api` path).
 `ACCOUNTS_INTERNAL_SECRET` must match the backend's `INTERNAL_SHARED_SECRET`.

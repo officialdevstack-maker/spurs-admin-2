@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -9,10 +8,10 @@ import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getSessionUser } from "@/lib/auth";
 
 export function LoginForm() {
-  const router = useRouter();
-  const { user, ready, login } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [show, setShow] = React.useState(false);
@@ -20,8 +19,18 @@ export function LoginForm() {
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (ready && user) router.replace("/");
-  }, [ready, user, router]);
+    let active = true;
+    getSessionUser()
+      .then((existing) => {
+        if (active && existing) window.location.replace("/");
+      })
+      .catch((error: unknown) => {
+        console.error("Could not verify panel session on login page:", error);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,7 +39,7 @@ export function LoginForm() {
     try {
       await login(email, password);
       toast.success("Welcome back");
-      router.replace("/");
+      window.location.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {

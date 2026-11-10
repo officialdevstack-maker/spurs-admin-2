@@ -21,18 +21,19 @@ async function handler(
   request: NextRequest,
   context: { params: Promise<{ path: string[] }> },
 ) {
-  let admin: SessionUser | null;
+  let admin: SessionUser;
   try {
-    admin = await getAdmin();
+    const currentAdmin = await getAdmin();
+    if (!currentAdmin) {
+      return NextResponse.json({ message: "Not signed in." }, { status: 401 });
+    }
+    admin = currentAdmin;
   } catch (error) {
     console.error("Accounts proxy authentication is unavailable:", error);
     return NextResponse.json(
       { message: "Panel authentication is temporarily unavailable." },
       { status: 503 },
     );
-  }
-  if (!admin) {
-    return NextResponse.json({ message: "Not signed in." }, { status: 401 });
   }
 
   const { path } = await context.params;
@@ -49,8 +50,11 @@ async function handler(
   }
 
   try {
+    const target = subpath.startsWith("stats/")
+      ? `/api/internal/${subpath}`
+      : `/api/internal/admin/${subpath}`;
     const response = await accountsFetch(
-      `${subpath.startsWith("stats/") ? `/api/internal/${subpath}` : `/api/internal/admin/${subpath}`}${request.nextUrl.search}`,
+      `${target}${request.nextUrl.search}`,
       { method: request.method },
       admin.email,
     );

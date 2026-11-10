@@ -46,7 +46,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       ready,
       login: async (email, password) => {
-        setUser(await loginRequest(email, password));
+        await loginRequest(email, password);
+        const confirmedUser = await getSessionUser();
+        if (!confirmedUser) {
+          throw new Error(
+            "Signed in, but the session cookie was not saved. If you are running over HTTP, the secure cookie flag may be blocking it.",
+          );
+        }
+        setUser(confirmedUser);
       },
       logout: async () => {
         await logoutRequest();
