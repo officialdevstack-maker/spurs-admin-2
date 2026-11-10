@@ -37,15 +37,15 @@ export function isPermissionAllowed(value: string) {
   return value === ALL_PERMISSIONS || value in PERMISSION_CATALOG;
 }
 
-export function isSuperAdmin(dashboards: string[] = [], permissions: string[] = []) {
-  return dashboards.includes(ALL_ACCESS) || normalizePermissions(permissions).includes(ALL_PERMISSIONS);
+export function isSuperAdmin(permissions: string[] = []) {
+  return normalizePermissions(permissions).includes(ALL_PERMISSIONS);
 }
 
 export function hasPermission(permissions: string[] = [], permission: string) {
   const normalized = normalizePermissions(permissions);
-  return normalized.includes(ALL_PERMISSIONS) || normalized.includes(permission);
+  return isSuperAdmin(normalized) || normalized.includes(permission);
 }
 
 export function canAccessDashboard(dashboards: string[] = [], slug: string) {
-  return isSuperAdmin(dashboards) || dashboards.includes(slug);
+  return dashboards.includes(ALL_ACCESS) || dashboards.includes(slug);
 }

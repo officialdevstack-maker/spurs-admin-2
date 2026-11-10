@@ -8,14 +8,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { canAccessDashboard } from "@/lib/permissions";
+import { canAccessDashboard, type PermissionName } from "@/lib/permissions";
 
 export type NavItem = {
   title: string;
   href: string;
   icon: LucideIcon;
-  /** Only visible to admins with full access (managing admins and roles). */
-  superOnly?: boolean;
+  requiredPermission?: PermissionName;
   /** Items sharing a group render under one sidebar label. */
   group?: string;
 };
@@ -40,14 +39,14 @@ export const DASHBOARDS: Dashboard[] = [
         title: "Admin users",
         href: "/users",
         icon: Users,
-        superOnly: true,
+        requiredPermission: "admins.manage",
         group: "Administration",
       },
       {
         title: "Roles",
         href: "/roles",
         icon: ShieldCheck,
-        superOnly: true,
+        requiredPermission: "roles.manage",
         group: "Administration",
       },
       { title: "Settings", href: "/settings", icon: Settings },
@@ -93,12 +92,14 @@ export function firstAccessibleDashboard(allowed: string[]): Dashboard | null {
   return DASHBOARDS.find((d) => canAccessDashboard(allowed, d.slug)) ?? null;
 }
 
-export function isSuperOnlyPath(pathname: string) {
-  return DASHBOARDS.some((d) =>
-    d.nav.some(
-      (item) =>
-        item.superOnly &&
-        (pathname === item.href || pathname.startsWith(`${item.href}/`)),
-    ),
-  );
+export function requiredPermissionForPath(pathname: string): PermissionName | null {
+  for (const dashboard of DASHBOARDS) {
+    const item = dashboard.nav.find(
+      (navItem) =>
+        navItem.requiredPermission &&
+        (pathname === navItem.href || pathname.startsWith(`${navItem.href}/`)),
+    );
+    if (item?.requiredPermission) return item.requiredPermission;
+  }
+  return null;
 }

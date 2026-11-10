@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getPool } from "@/lib/db";
-import { requireSuperAdmin } from "@/lib/admin-guard";
+import { requirePermission } from "@/lib/admin-guard";
 import { isPermissionAllowed, normalizePermissions } from "@/lib/permissions";
 
 export async function PATCH(
@@ -9,7 +9,7 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const guard = await requireSuperAdmin(request);
+    const guard = await requirePermission(request, "roles.manage");
     if ("error" in guard) return guard.error;
 
     const { id: raw } = await context.params;

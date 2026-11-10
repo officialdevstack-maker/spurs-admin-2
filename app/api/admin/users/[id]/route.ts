@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { getPool } from "@/lib/db";
-import { requireSuperAdmin } from "@/lib/admin-guard";
+import { requirePermission } from "@/lib/admin-guard";
 
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    const guard = await requireSuperAdmin(request);
+    const guard = await requirePermission(request, "admins.manage");
     if ("error" in guard) return guard.error;
 
     const { id: raw } = await context.params;

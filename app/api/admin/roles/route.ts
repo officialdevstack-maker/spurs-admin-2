@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { getPool } from "@/lib/db";
-import { requireSuperAdmin } from "@/lib/admin-guard";
+import { requirePermission } from "@/lib/admin-guard";
 import { isPermissionAllowed, normalizePermissions } from "@/lib/permissions";
 
 export async function GET(request: Request) {
   try {
-    const guard = await requireSuperAdmin(request);
+    const guard = await requirePermission(request, "roles.manage");
     if ("error" in guard) return guard.error;
 
     const { rows } = await getPool().query(
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const guard = await requireSuperAdmin(request);
+    const guard = await requirePermission(request, "roles.manage");
     if ("error" in guard) return guard.error;
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;

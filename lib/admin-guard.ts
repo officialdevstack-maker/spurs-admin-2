@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { getAdmin, type SessionUser } from "@/lib/session";
-import { isSuperAdmin } from "@/lib/permissions";
+import { hasPermission, type PermissionName } from "@/lib/permissions";
 
-export async function requireSuperAdmin(
+export async function requirePermission(
   request: Request,
+  permission: PermissionName,
 ): Promise<{ admin: SessionUser } | { error: NextResponse }> {
   const admin = await getAdmin();
   if (!admin) {
     return { error: NextResponse.json({ message: "Not signed in." }, { status: 401 }) };
   }
-  if (!isSuperAdmin(admin.dashboards)) {
+  if (!hasPermission(admin.permissions, permission)) {
     return { error: NextResponse.json({ message: "Forbidden." }, { status: 403 }) };
   }
   if (request.method !== "GET") {

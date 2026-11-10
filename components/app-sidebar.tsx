@@ -32,7 +32,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { getDashboard, groupNav } from "@/lib/dashboards";
-import { isSuperAdmin } from "@/lib/permissions";
+import { hasPermission } from "@/lib/permissions";
 import { SUBDOMAINS, subdomainUrl } from "@/lib/subdomains";
 
 export function AppSidebar() {
@@ -40,10 +40,10 @@ export function AppSidebar() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const dashboard = getDashboard(pathname);
-  const allowedDashboards = user?.dashboards ?? [];
-  const isSuperAdminUser = isSuperAdmin(allowedDashboards, user?.permissions);
   const visibleNav = dashboard.nav.filter(
-    (item) => !item.superOnly || isSuperAdminUser,
+    (item) =>
+      !item.requiredPermission ||
+      hasPermission(user?.permissions, item.requiredPermission),
   );
   const sections = groupNav(visibleNav);
 

@@ -9,8 +9,12 @@ import { useAuth } from "@/components/auth-provider";
 import { DashboardSwitcher } from "@/components/dashboard-switcher";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { canAccessDashboard, isSuperAdmin } from "@/lib/permissions";
-import { firstAccessibleDashboard, getDashboard, isSuperOnlyPath } from "@/lib/dashboards";
+import { canAccessDashboard, hasPermission } from "@/lib/permissions";
+import {
+  firstAccessibleDashboard,
+  getDashboard,
+  requiredPermissionForPath,
+} from "@/lib/dashboards";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -36,7 +40,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
-    if (isSuperOnlyPath(pathname) && !isSuperAdmin(allowed)) {
+    const requiredPermission = requiredPermissionForPath(pathname);
+    if (requiredPermission && !hasPermission(user.permissions, requiredPermission)) {
       navigateToFirstAccessible();
     }
   }, [ready, router, user]);
