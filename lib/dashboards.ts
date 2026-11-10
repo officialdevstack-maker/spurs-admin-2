@@ -38,6 +38,7 @@ export const DASHBOARDS: Dashboard[] = [
       { title: "Overview", href: "/accounts", icon: LayoutDashboard },
       { title: "Accounts", href: "/accounts/list", icon: Wallet },
       { title: "Transactions", href: "/accounts/transactions", icon: Receipt },
+      { title: "Settings", href: "/accounts/settings", icon: Settings },
     ],
   },
 ];

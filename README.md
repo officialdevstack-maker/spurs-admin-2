@@ -56,6 +56,9 @@ can sign in. Generate a session secret with
 
 Changing a password in the panel also changes it for the user's main account. Existing access tokens
 are not revoked. The Accounts API variables remain in use by the panel's Accounts API proxy.
+The Accounts dashboard Settings page reads and updates the accounts service's whitelisted
+settings through that proxy; apply the pending settings migration in `node-accounts/backend`
+before using it.
 
 ## Getting Started
 

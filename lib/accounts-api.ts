@@ -92,3 +92,21 @@ export const suspendUser = (id: number) => post(id, "suspend");
 export const unsuspendUser = (id: number) => post(id, "unsuspend");
 export const revokeUserSessions = (id: number) => post(id, "revoke-sessions");
 export const verifyUserEmail = (id: number) => post(id, "verify-email");
+
+export type AccountSettings = {
+  registration_enabled: boolean;
+  maintenance_mode: boolean;
+  support_email: string;
+};
+
+export async function getAccountSettings(): Promise<AccountSettings> {
+  const res = await api<AccountSettings>("/settings");
+  return res.data;
+}
+
+export async function updateAccountSettings(
+  changes: Partial<AccountSettings>,
+): Promise<AccountSettings> {
+  const res = await api<AccountSettings>("/settings", { method: "POST", body: changes });
+  return res.data;
+}

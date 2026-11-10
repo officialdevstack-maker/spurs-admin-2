@@ -9,6 +9,8 @@ type Rule = { method: "GET" | "POST"; pattern: RegExp };
 const ALLOWED: Rule[] = [
   { method: "GET", pattern: /^stats\/users$/ },
   { method: "GET", pattern: /^stats\/active-users-chart$/ },
+  { method: "GET", pattern: /^settings$/ },
+  { method: "POST", pattern: /^settings$/ },
   { method: "GET", pattern: /^users$/ },
   { method: "GET", pattern: /^users\/\d+$/ },
   {
@@ -56,9 +58,16 @@ async function handler(
     const target = subpath.startsWith("stats/")
       ? `/api/internal/${subpath}`
       : `/api/internal/admin/${subpath}`;
+    const hasBody = request.method === "POST" && subpath === "settings";
     const response = await accountsFetch(
       `${target}${request.nextUrl.search}`,
-      { method: request.method },
+      {
+        method: request.method,
+        ...(hasBody && {
+          headers: { "Content-Type": "application/json" },
+          body: await request.text(),
+        }),
+      },
       admin.email,
     );
 
