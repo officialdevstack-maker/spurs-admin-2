@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -13,7 +13,6 @@ import { canAccessDashboard, isSuperAdmin } from "@/lib/permissions";
 import { firstAccessibleDashboard, getDashboard, isSuperOnlyPath } from "@/lib/dashboards";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
   const { user, ready } = useAuth();
 
@@ -24,6 +23,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
 
+    const pathname = window.location.pathname;
     const dashboard = getDashboard(pathname);
     const allowed = user.dashboards ?? [];
     const navigateToFirstAccessible = () => {
@@ -39,7 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (isSuperOnlyPath(pathname) && !isSuperAdmin(allowed)) {
       navigateToFirstAccessible();
     }
-  }, [pathname, ready, router, user]);
+  }, [ready, router, user]);
 
   if (!ready || !user) {
     return (
