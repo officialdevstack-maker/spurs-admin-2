@@ -6,6 +6,7 @@ let loginInProgress: Promise<string> | null = null;
 
 function getBaseUrl() {
   const value = process.env.ACCOUNTS_API_URL;
+  console.log({value})
   if (!value) throw new Error("ACCOUNTS_API_URL is not configured");
   const url = new URL(value);
   if (url.protocol !== "https:" && url.protocol !== "http:") {
