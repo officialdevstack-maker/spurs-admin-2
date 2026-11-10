@@ -18,6 +18,14 @@ Never enable this setting in production behind HTTPS.
 
 `ACCOUNTS_API_URL` must be the accounts backend origin (without an `/api` path).
 `ACCOUNTS_INTERNAL_SECRET` must match the backend's `INTERNAL_SHARED_SECRET`.
+The Accounts dashboard calls the backend's `/api/internal/...` endpoints through a
+server-side proxy. If one of these routes returns 404 (for example,
+`/api/internal/stats/users`), confirm `ACCOUNTS_API_URL` points to the `node-accounts`
+backend and that its latest build has been deployed. The proxy uses only the configured
+URL's origin and, outside production, logs the complete upstream URL and status for failed
+requests. If that URL points back to the admin app, configure the accounts backend on a
+different port and set `ACCOUNTS_API_URL` to that origin (for example,
+`http://localhost:4000`); restart both apps after changing their port configuration.
 
 The admin panel authenticates against the PostgreSQL `users` table. To apply pending migrations from the
 `migrations` directory to the configured database, run:

@@ -28,17 +28,16 @@ export default function AccountsList({ initialStatus }: { initialStatus: StatusF
   const [searchInput, setSearchInput] = React.useState("");
   const [search, setSearch] = React.useState("");
   const [page, setPage] = React.useState(1);
-  const [result, setResult] = React.useState<UserListResponse | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const [result, setResult] = React.useState<{ key: string; response: UserListResponse } | null>(null);
+  const [loadedKey, setLoadedKey] = React.useState<string | null>(null);
+  const [failure, setFailure] = React.useState<{ key: string; message: string } | null>(null);
   const [notice, setNotice] = React.useState<Notice | null>(null);
   const [busyUser, setBusyUser] = React.useState<number | null>(null);
   const [reload, setReload] = React.useState(0);
+  const queryKey = JSON.stringify([page, search, status, reload]);
 
   React.useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError(null);
     listUsers({
       page,
       per_page: 15,
@@ -46,19 +45,22 @@ export default function AccountsList({ initialStatus }: { initialStatus: StatusF
       status: status === "suspended" ? "suspended" : undefined,
     })
       .then((response) => {
-        if (active) setResult(response);
+        if (active) {
+          setResult({ key: queryKey, response });
+          setFailure(null);
+        }
       })
       .catch((cause: unknown) => {
-        if (active) setError(errorMessage(cause));
+        if (active) setFailure({ key: queryKey, message: errorMessage(cause) });
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active) setLoadedKey(queryKey);
       });
 
     return () => {
       active = false;
     };
-  }, [page, reload, search, status]);
+  }, [page, queryKey, reload, search, status]);
 
   async function performAction(user: ApiUser, action: "suspend" | "unsuspend" | "verify" | "revoke") {
     const prompts = {
@@ -83,8 +85,11 @@ export default function AccountsList({ initialStatus }: { initialStatus: StatusF
     }
   }
 
-  const users = result?.data ?? [];
-  const meta = result?.meta;
+  const currentResult = result?.key === queryKey ? result.response : null;
+  const users = currentResult?.data ?? [];
+  const meta = currentResult?.meta;
+  const loading = loadedKey !== queryKey;
+  const error = failure?.key === queryKey ? failure.message : null;
 
   return (
     <div className="space-y-6">

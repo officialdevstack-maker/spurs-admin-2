@@ -42,7 +42,10 @@ async function handler(
     (rule) => rule.method === request.method && rule.pattern.test(subpath),
   );
   if (!allowed) {
-    return NextResponse.json({ message: "Not found" }, { status: 404 });
+    return NextResponse.json(
+      { message: `Panel proxy: ${request.method} /${subpath} is not allowed.` },
+      { status: 404 },
+    );
   }
 
   if (request.method === "POST" && request.headers.get("origin") !== request.nextUrl.origin) {
