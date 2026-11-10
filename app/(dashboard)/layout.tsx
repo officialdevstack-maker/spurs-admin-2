@@ -4,12 +4,11 @@ import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
+import { AppNavbar } from "@/components/app-navbar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/components/auth-provider";
-import { DashboardSwitcher } from "@/components/dashboard-switcher";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { canAccessDashboard, hasPermission } from "@/lib/permissions";
 import { getDashboard, landingHref, requiredPermissionForPath } from "@/lib/dashboards";
 
@@ -94,11 +93,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 items-center gap-2 bg-card px-4 shadow-sm">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="h-4" />
-          <DashboardSwitcher />
-        </header>
+        <AppNavbar />
         <div className="flex-1 p-4 md:p-6">{children}</div>
       </SidebarInset>
     </SidebarProvider>
