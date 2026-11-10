@@ -71,7 +71,7 @@ export default function AccountsOverviewPage() {
       .catch(() => {
         if (active) setRecentError(true);
       });
-    listActivity(8)
+    listActivity(3)
       .then((rows) => {
         if (active) setActivity(rows);
       })
