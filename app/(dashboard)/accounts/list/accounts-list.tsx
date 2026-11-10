@@ -1,10 +1,27 @@
 "use client";
 
 import * as React from "react";
-import { ChevronLeft, ChevronRight, KeyRound, Search, ShieldCheck, ShieldOff } from "lucide-react";
+import Link from "next/link";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  KeyRound,
+  MoreHorizontal,
+  Search,
+  ShieldCheck,
+  ShieldOff,
+} from "lucide-react";
 
 import { UserBadges } from "@/components/user-badges";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   listUsers,
@@ -144,7 +161,7 @@ export default function AccountsList({ initialStatus }: { initialStatus: StatusF
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
 
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[860px] text-left text-sm">
+        <table className="w-full min-w-[640px] text-left text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Account</th>
@@ -169,38 +186,48 @@ export default function AccountsList({ initialStatus }: { initialStatus: StatusF
                   <td className="px-4 py-3"><UserBadges user={user} /></td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(user.createdAt)}</td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      {!user.isVerified && (
-                        <Button
-                          aria-label={`Verify email for ${user.fullname}`}
-                          disabled={busyUser === user.id}
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void performAction(user, "verify")}
+                    <div className="flex justify-end">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              aria-label={`Actions for ${user.fullname}`}
+                              disabled={busyUser === user.id}
+                              size="icon-sm"
+                              variant="ghost"
+                            />
+                          }
                         >
-                          <ShieldCheck /> Verify
-                        </Button>
-                      )}
-                      {!user.isAdmin && (
-                        <Button
-                          aria-label={`${user.suspendedAt ? "Unsuspend" : "Suspend"} ${user.fullname}`}
-                          disabled={busyUser === user.id}
-                          size="sm"
-                          variant={user.suspendedAt ? "outline" : "destructive"}
-                          onClick={() => void performAction(user, user.suspendedAt ? "unsuspend" : "suspend")}
-                        >
-                          <ShieldOff /> {user.suspendedAt ? "Restore" : "Suspend"}
-                        </Button>
-                      )}
-                      <Button
-                        aria-label={`Revoke sessions for ${user.fullname}`}
-                        disabled={busyUser === user.id}
-                        size="sm"
-                        variant="outline"
-                        onClick={() => void performAction(user, "revoke")}
-                      >
-                        <KeyRound /> Revoke sessions
-                      </Button>
+                          <MoreHorizontal />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem render={<Link href={`/accounts/list/${user.id}`} />}>
+                            <Eye /> View details
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {!user.isVerified && (
+                            <DropdownMenuItem onClick={() => void performAction(user, "verify")}>
+                              <ShieldCheck /> Verify email
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => void performAction(user, "revoke")}>
+                            <KeyRound /> Revoke sessions
+                          </DropdownMenuItem>
+                          {!user.isAdmin && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant={user.suspendedAt ? "default" : "destructive"}
+                                onClick={() =>
+                                  void performAction(user, user.suspendedAt ? "unsuspend" : "suspend")
+                                }
+                              >
+                                <ShieldOff /> {user.suspendedAt ? "Restore account" : "Suspend account"}
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </td>
                 </tr>
