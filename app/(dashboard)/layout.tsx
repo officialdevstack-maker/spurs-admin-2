@@ -14,6 +14,20 @@ import { canAccessDashboard, hasPermission } from "@/lib/permissions";
 import { getDashboard, landingHref, requiredPermissionForPath } from "@/lib/dashboards";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <React.Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <Loader2 className="size-6 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </React.Suspense>
+  );
+}
+
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, ready, logout } = useAuth();

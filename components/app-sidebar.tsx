@@ -101,27 +101,7 @@ export function AppSidebar() {
             </SidebarGroup>
           ))}
 
-          {dashboard.slug === "default" && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Subdomains</SidebarGroupLabel>
-              <SidebarMenu>
-                {SUBDOMAINS.map((s) => (
-                  <SidebarMenuItem key={s.slug}>
-                    <SidebarMenuButton
-                      render={<a href={subdomainUrl(s.slug)} target="_blank" rel="noopener noreferrer" />}
-                      tooltip={s.name}
-                      className="h-10 rounded-full px-3 font-medium"
-                    >
-                      <>
-                        <ExternalLink />
-                        <span>{s.name}</span>
-                      </>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroup>
-          )}
+          
         </SidebarContent>
 
         <SidebarFooter>
