@@ -10,6 +10,7 @@ export const PERMISSION_CATALOG = {
   "accounts.settings": "Update account settings",
   "admins.manage": "Manage admin users",
   "roles.manage": "Manage admin roles",
+  "settings.manage": "Manage global settings",
 } as const;
 
 export type PermissionName = keyof typeof PERMISSION_CATALOG;
@@ -23,6 +24,7 @@ export const PERMISSION_DASHBOARD: Record<PermissionName, string> = {
   "accounts.settings": "accounts",
   "admins.manage": "default",
   "roles.manage": "default",
+  "settings.manage": "default",
 };
 
 type RoleAccess = { dashboards: string[]; permissions: string[] };

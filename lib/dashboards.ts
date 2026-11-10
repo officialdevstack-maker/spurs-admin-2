@@ -50,7 +50,12 @@ export const DASHBOARDS: Dashboard[] = [
         requiredPermission: "roles.manage",
         group: "Administration",
       },
-      { title: "Settings", href: "/settings", icon: Settings },
+      {
+        title: "Settings",
+        href: "/settings",
+        icon: Settings,
+        requiredPermission: "settings.manage",
+      },
     ],
   },
   {

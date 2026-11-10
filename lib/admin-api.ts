@@ -15,6 +15,18 @@ export type AdminRow = {
   roleName: string | null;
 };
 
+export type EmailSettings = {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string;
+  fromName: string;
+  fromEmail: string;
+  replyTo: string;
+  passwordSet: boolean;
+};
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -47,3 +59,12 @@ export const createAdmin = (input: {
 }) => call("/api/admin/users", { method: "POST", body: JSON.stringify(input) });
 export const updateAdmin = (id: number, changes: { roleId?: number; suspended?: boolean }) =>
   call(`/api/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(changes) });
+export const getEmailSettings = () =>
+  call<{ data: EmailSettings }>("/api/admin/settings/email").then((response) => response.data);
+export const updateEmailSettings = (
+  input: Omit<EmailSettings, "passwordSet"> & { password?: string; clearPassword?: boolean },
+) =>
+  call<{ data: EmailSettings }>("/api/admin/settings/email", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  }).then((response) => response.data);

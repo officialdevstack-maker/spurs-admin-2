@@ -20,7 +20,7 @@ export default function NewRolePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="w-full space-y-6">
       <Button variant="ghost" size="sm" render={<Link href="/roles" />}>
         <ArrowLeft /> Back to roles
       </Button>
@@ -33,8 +33,9 @@ export default function NewRolePage() {
       </div>
 
       <Card>
-        <CardContent>
+        <CardContent className="p-3 px-5">
           <RoleForm
+            variant="split"
             submitLabel="Create role"
             onSubmit={create}
             onCancel={() => router.push("/roles")}
