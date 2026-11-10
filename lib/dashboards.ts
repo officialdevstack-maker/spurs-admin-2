@@ -16,6 +16,8 @@ export type NavItem = {
   icon: LucideIcon;
   /** Only visible to admins with full access (managing admins and roles). */
   superOnly?: boolean;
+  /** Items sharing a group render under one sidebar label. */
+  group?: string;
 };
 
 export type Dashboard = {
@@ -34,8 +36,20 @@ export const DASHBOARDS: Dashboard[] = [
     basePath: "/",
     nav: [
       { title: "Dashboard", href: "/", icon: LayoutDashboard },
-      { title: "Admin users", href: "/users", icon: Users, superOnly: true },
-      { title: "Roles", href: "/roles", icon: ShieldCheck, superOnly: true },
+      {
+        title: "Admin users",
+        href: "/users",
+        icon: Users,
+        superOnly: true,
+        group: "Administration",
+      },
+      {
+        title: "Roles",
+        href: "/roles",
+        icon: ShieldCheck,
+        superOnly: true,
+        group: "Administration",
+      },
       { title: "Settings", href: "/settings", icon: Settings },
     ],
   },
@@ -62,6 +76,17 @@ export function getDashboard(pathname: string): Dashboard {
           pathname.startsWith(`${dashboard.basePath}/`)),
     ) ?? DASHBOARDS[0]
   );
+}
+
+export function groupNav(items: NavItem[]) {
+  const sections: { label: string | null; items: NavItem[] }[] = [];
+  for (const item of items) {
+    const label = item.group ?? null;
+    const last = sections[sections.length - 1];
+    if (label && last?.label === label) last.items.push(item);
+    else sections.push({ label, items: [item] });
+  }
+  return sections;
 }
 
 export function firstAccessibleDashboard(allowed: string[]): Dashboard | null {

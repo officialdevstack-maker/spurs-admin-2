@@ -31,7 +31,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { getDashboard } from "@/lib/dashboards";
+import { getDashboard, groupNav } from "@/lib/dashboards";
 import { isSuperAdmin } from "@/lib/permissions";
 import { SUBDOMAINS, subdomainUrl } from "@/lib/subdomains";
 
@@ -44,6 +44,7 @@ export function AppSidebar() {
   const visibleNav = dashboard.nav.filter(
     (item) => !item.superOnly || isSuperAdmin(allowedDashboards),
   );
+  const sections = groupNav(visibleNav);
 
   return (
       <Sidebar collapsible="icon">
@@ -66,26 +67,28 @@ export function AppSidebar() {
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>{dashboard.name}</SidebarGroupLabel>
-            <SidebarMenu>
-              {visibleNav.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    render={<Link href={item.href} />}
-                    isActive={pathname === item.href}
-                    tooltip={item.title}
-                    className="h-10 rounded-full px-3 font-medium"
-                  >
-                    <>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroup>
+          {sections.map((section) => (
+            <SidebarGroup key={section.label ?? "default"}>
+              {section.label && <SidebarGroupLabel>{section.label}</SidebarGroupLabel>}
+              <SidebarMenu>
+                {section.items.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      render={<Link href={item.href} />}
+                      isActive={pathname === item.href}
+                      tooltip={item.title}
+                      className="h-10 rounded-full px-3 font-medium"
+                    >
+                      <>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          ))}
 
           {dashboard.slug === "default" && (
             <SidebarGroup>
