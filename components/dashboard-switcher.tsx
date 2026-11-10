@@ -14,7 +14,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DASHBOARDS, getDashboard } from "@/lib/dashboards";
+import { DASHBOARDS, firstAccessibleHref, getDashboard } from "@/lib/dashboards";
 import { canAccessDashboard } from "@/lib/permissions";
 
 export function DashboardSwitcher() {
@@ -22,7 +22,12 @@ export function DashboardSwitcher() {
   const router = useRouter();
   const { user } = useAuth();
   const allowed = user?.dashboards ?? [];
-  const available = DASHBOARDS.filter((dashboard) => canAccessDashboard(allowed, dashboard.slug));
+  const permissions = user?.permissions ?? [];
+  const available = DASHBOARDS.filter(
+    (dashboard) =>
+      canAccessDashboard(allowed, dashboard.slug) &&
+      firstAccessibleHref(dashboard, permissions) !== null,
+  );
   const current = available.find((dashboard) => dashboard.slug === getDashboard(pathname).slug) ?? available[0] ?? getDashboard(pathname);
 
   return (
@@ -40,7 +45,8 @@ export function DashboardSwitcher() {
             <DropdownMenuItem
               key={dashboard.slug}
               onClick={() => {
-                if (dashboard.slug !== current.slug) router.push(dashboard.basePath);
+                const href = firstAccessibleHref(dashboard, permissions);
+                if (dashboard.slug !== current.slug && href) router.push(href);
               }}
             >
               <div className="grid flex-1 leading-tight">

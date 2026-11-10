@@ -16,6 +16,7 @@ import {
 
 import { UserBadges } from "@/components/user-badges";
 import { CreateUserDialog } from "@/components/create-user-dialog";
+import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -35,6 +36,7 @@ import {
   type UserListResponse,
 } from "@/lib/accounts-api";
 import { formatDate } from "@/lib/format";
+import { hasPermission, type PermissionName } from "@/lib/permissions";
 
 type StatusFilter = "all" | "suspended";
 type Notice = { kind: "success" | "error"; message: string };
@@ -43,6 +45,8 @@ const errorMessage = (cause: unknown) =>
   cause instanceof Error ? cause.message : "Something went wrong.";
 
 export default function AccountsList({ initialStatus }: { initialStatus: StatusFilter }) {
+  const { user: admin } = useAuth();
+  const can = (permission: PermissionName) => hasPermission(admin?.permissions, permission);
   const [status, setStatus] = React.useState<StatusFilter>(initialStatus);
   const [searchInput, setSearchInput] = React.useState("");
   const [search, setSearch] = React.useState("");
@@ -120,9 +124,11 @@ export default function AccountsList({ initialStatus }: { initialStatus: StatusF
             Search and manage user accounts on the accounts service.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus /> New user
-        </Button>
+        {can("accounts.create") && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus /> New user
+          </Button>
+        )}
       </div>
 
       <form
@@ -213,15 +219,17 @@ export default function AccountsList({ initialStatus }: { initialStatus: StatusF
                             <Eye /> View details
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          {!user.isVerified && (
+                          {!user.isVerified && can("accounts.verify") && (
                             <DropdownMenuItem onClick={() => void performAction(user, "verify")}>
                               <ShieldCheck /> Verify email
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem onClick={() => void performAction(user, "revoke")}>
-                            <KeyRound /> Revoke sessions
-                          </DropdownMenuItem>
-                          {!user.isAdmin && (
+                          {can("accounts.revoke_sessions") && (
+                            <DropdownMenuItem onClick={() => void performAction(user, "revoke")}>
+                              <KeyRound /> Revoke sessions
+                            </DropdownMenuItem>
+                          )}
+                          {!user.isAdmin && can("accounts.suspend") && (
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem

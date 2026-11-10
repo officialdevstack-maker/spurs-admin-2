@@ -117,7 +117,16 @@ export default function AdminUsers() {
                         className={selectClass + " max-w-48"}
                         value={a.roleId ?? ""}
                         disabled={self || busy === a.id}
-                        onChange={(e) => void change(a.id, { roleId: Number(e.target.value) })}
+                        onChange={(e) => {
+                          const nextRole = roles.find((role) => role.id === Number(e.target.value));
+                          if (
+                            !nextRole ||
+                            !window.confirm(`Change ${a.fullname}'s role to "${nextRole.name}"?`)
+                          ) {
+                            return;
+                          }
+                          void change(a.id, { roleId: nextRole.id });
+                        }}
                       >
                         {a.roleId === null && <option value="">No role</option>}
                         {roles.map((r) => (

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,7 +19,15 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DASHBOARDS } from "@/lib/dashboards";
 import { createRole, listRoles, updateRole, type AdminRole } from "@/lib/admin-api";
-import { PERMISSION_CATALOG } from "@/lib/permissions";
+import {
+  canAccessDashboard,
+  canGrant,
+  hasPermission,
+  isSuperAdmin,
+  PERMISSION_CATALOG,
+  PERMISSION_DASHBOARD,
+  type PermissionName,
+} from "@/lib/permissions";
 
 const labelClass = "text-sm font-medium";
 const editButtonClass = "h-8 rounded-md border border-border bg-background px-3 text-xs";
@@ -64,6 +73,11 @@ function RoleBadges({ dashboards, permissions }: { dashboards: string[]; permiss
 }
 
 export default function AdminRoles() {
+  const { user } = useAuth();
+  const actor = {
+    dashboards: user?.dashboards ?? [],
+    permissions: user?.permissions ?? [],
+  };
   const [roles, setRoles] = React.useState<AdminRole[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [open, setOpen] = React.useState(false);
@@ -85,20 +99,16 @@ export default function AdminRoles() {
   }, [reload]);
 
   async function saveRole(input: { name: string; description: string; dashboards: string[]; permissions?: string[] }) {
-    try {
-      if (editing) {
-        await updateRole(editing.id, input);
-        toast.success("Role updated.");
-      } else {
-        await createRole(input);
-        toast.success("Role created.");
-      }
-      setOpen(false);
-      setEditing(null);
-      setReload((v) => v + 1);
-    } catch (e) {
-      toast.error(msg(e));
+    if (editing) {
+      await updateRole(editing.id, input);
+      toast.success("Role updated.");
+    } else {
+      await createRole(input);
+      toast.success("Role created.");
     }
+    setOpen(false);
+    setEditing(null);
+    setReload((v) => v + 1);
   }
 
   return (
@@ -154,6 +164,23 @@ export default function AdminRoles() {
                           size="sm"
                           variant="outline"
                           className={editButtonClass}
+                          disabled={
+                            role.name.toLowerCase() === user?.role?.toLowerCase() ||
+                            !canGrant(actor, {
+                              dashboards: role.dashboards,
+                              permissions: role.permissions ?? [],
+                            })
+                          }
+                          title={
+                            role.name.toLowerCase() === user?.role?.toLowerCase()
+                              ? "You can't edit the role assigned to your account"
+                              : canGrant(actor, {
+                                  dashboards: role.dashboards,
+                                  permissions: role.permissions ?? [],
+                                })
+                                ? undefined
+                                : "This role has more access than you do"
+                          }
                           onClick={() => {
                             setEditing(role);
                             setOpen(true);
@@ -178,6 +205,7 @@ export default function AdminRoles() {
       </div>
 
       <RoleDialog
+        key={open ? `open-${editing?.id ?? "new"}` : "closed"}
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
@@ -206,22 +234,34 @@ function RoleDialog({
     permissions?: string[];
   }) => Promise<void>;
 }) {
-  const [name, setName] = React.useState("");
-  const [description, setDescription] = React.useState("");
-  const [selected, setSelected] = React.useState<string[]>([]);
-  const [selectedPermissions, setSelectedPermissions] = React.useState<string[]>([]);
+  const { user } = useAuth();
+  const isSuper = isSuperAdmin(user?.permissions);
+  const availableDashboards = DASHBOARDS.filter((dashboard) =>
+    canAccessDashboard(user?.dashboards, dashboard.slug),
+  );
+  const permissionGroups = DASHBOARDS.map((dashboard) => ({
+    dashboard,
+    items: permissionOptions.filter(
+      ([slug]) =>
+        PERMISSION_DASHBOARD[slug as PermissionName] === dashboard.slug &&
+        hasPermission(user?.permissions, slug) &&
+        canAccessDashboard(user?.dashboards, dashboard.slug),
+    ),
+  })).filter((group) => group.items.length);
+  const [name, setName] = React.useState(editing?.name ?? "");
+  const [description, setDescription] = React.useState(editing?.description ?? "");
+  const [selected, setSelected] = React.useState<string[]>(
+    () =>
+      editing?.dashboards ??
+      (isSuper
+        ? ["*"]
+        : availableDashboards.map((dashboard) => dashboard.slug)),
+  );
+  const [selectedPermissions, setSelectedPermissions] = React.useState<string[]>(
+    editing?.permissions ?? [],
+  );
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (!open) return;
-    const dashboards = editing?.dashboards ?? ["*"];
-    setName(editing?.name ?? "");
-    setDescription(editing?.description ?? "");
-    setSelected(dashboards);
-    setSelectedPermissions(editing?.permissions ?? []);
-    setError(null);
-  }, [editing, open]);
 
   function toggleDashboard(slug: string) {
     setSelected((current) => {
@@ -234,9 +274,23 @@ function RoleDialog({
     });
   }
 
+  const allPermissions = selectedPermissions.includes("*");
+
+  function toggleAllPermissions() {
+    setSelectedPermissions((current) => (current.includes("*") ? [] : ["*"]));
+  }
+
   function togglePermission(slug: string) {
-    setSelectedPermissions((current) =>
-      current.includes(slug) ? current.filter((value) => value !== slug) : [...current, slug],
+    if (selectedPermissions.includes(slug)) {
+      setSelectedPermissions((current) => current.filter((value) => value !== slug));
+      return;
+    }
+    setSelectedPermissions((current) => [...current, slug]);
+    const dashboard = PERMISSION_DASHBOARD[slug as PermissionName];
+    setSelected((current) =>
+      current.includes("*") || current.includes(dashboard)
+        ? current
+        : [...current, dashboard],
     );
   }
 
@@ -307,16 +361,22 @@ function RoleDialog({
           <div className="space-y-2">
             <Label className={labelClass}>Dashboards</Label>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex items-center gap-2 rounded-md border p-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selected.includes("*")}
-                  onChange={() => toggleDashboard("*")}
-                />
-                <span>All dashboards</span>
-              </label>
+              {isSuper && (
+                <label className="flex items-center gap-2 rounded-md border p-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes("*")}
+                    onChange={() => toggleDashboard("*")}
+                  />
+                  <span>All dashboards</span>
+                </label>
+              )}
 
-              {dashboardOptions.map((dashboard) => (
+              {dashboardOptions
+                .filter((dashboard) =>
+                  canAccessDashboard(user?.dashboards, dashboard.slug),
+                )
+                .map((dashboard) => (
                 <label key={dashboard.slug} className="flex items-center gap-2 rounded-md border p-2 text-sm">
                   <input
                     type="checkbox"
@@ -326,27 +386,48 @@ function RoleDialog({
                   />
                   <span>{dashboard.label}</span>
                 </label>
-              ))}
+                ))}
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label className={labelClass}>Action permissions</Label>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {permissionOptions.map(([slug, label]) => (
-                <label key={slug} className="flex items-start gap-2 rounded-md border p-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedPermissions.includes(slug)}
-                    onChange={() => togglePermission(slug)}
-                  />
-                  <span>
-                    <span className="block font-medium">{label}</span>
-                    <span className="text-xs text-muted-foreground">{slug}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
+            {isSuper && (
+              <label className="flex items-center gap-2 rounded-md border p-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={allPermissions}
+                  onChange={toggleAllPermissions}
+                />
+                <span>All permissions</span>
+              </label>
+            )}
+            {permissionGroups.map(({ dashboard, items }) => (
+              <div key={dashboard.slug} className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {dashboard.name} dashboard
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {items.map(([slug, label]) => (
+                    <label key={slug} className="flex items-start gap-2 rounded-md border p-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={allPermissions || selectedPermissions.includes(slug)}
+                        disabled={allPermissions}
+                        onChange={() => togglePermission(slug)}
+                      />
+                      <span>
+                        <span className="block font-medium">{label}</span>
+                        <span className="text-xs text-muted-foreground">{slug}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <p className="text-xs text-muted-foreground">
+              Selecting a permission also grants the dashboard it belongs to.
+            </p>
           </div>
 
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

@@ -31,7 +31,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { getDashboard, groupNav } from "@/lib/dashboards";
+import { firstAccessibleHref, getDashboard, groupNav } from "@/lib/dashboards";
 import { hasPermission } from "@/lib/permissions";
 import { SUBDOMAINS, subdomainUrl } from "@/lib/subdomains";
 
@@ -52,7 +52,17 @@ export function AppSidebar() {
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton size="lg" render={<Link href={dashboard.basePath} />}>
+              <SidebarMenuButton
+                size="lg"
+                render={
+                  <Link
+                    href={
+                      firstAccessibleHref(dashboard, user?.permissions ?? []) ??
+                      dashboard.basePath
+                    }
+                  />
+                }
+              >
                 <>
                   <div className="flex size-8 items-center justify-center rounded-[10px] bg-primary text-primary-foreground">
                     <Globe className="size-4" />

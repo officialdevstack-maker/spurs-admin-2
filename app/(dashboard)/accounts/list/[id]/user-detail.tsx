@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 
 import { UserBadges } from "@/components/user-badges";
+import { useAuth } from "@/components/auth-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +44,7 @@ import {
   type UserDetail,
 } from "@/lib/accounts-api";
 import { formatDate, formatDateTime, formatRelative } from "@/lib/format";
+import { hasPermission, type PermissionName } from "@/lib/permissions";
 
 type Action = "verify" | "revoke" | "suspend" | "unsuspend";
 
@@ -112,6 +114,8 @@ const CONFIRM_COPY: Record<
 
 export default function UserDetailView() {
   const { id } = useParams<{ id: string }>();
+  const { user: admin } = useAuth();
+  const can = (permission: PermissionName) => hasPermission(admin?.permissions, permission);
   const [result, setResult] = React.useState<{ id: string; detail: UserDetail } | null>(null);
   const [failure, setFailure] = React.useState<{ id: string; message: string } | null>(null);
   const [reload, setReload] = React.useState(0);
@@ -215,7 +219,7 @@ export default function UserDetailView() {
 
           {user && (
             <div className="flex flex-wrap gap-2">
-              {!user.isVerified && (
+              {!user.isVerified && can("accounts.verify") && (
                 <Button
                   variant="outline"
                   disabled={busy !== null}
@@ -225,14 +229,16 @@ export default function UserDetailView() {
                   Verify email
                 </Button>
               )}
-              <Button
-                variant="outline"
-                disabled={busy !== null}
-                onClick={() => setConfirm("revoke")}
-              >
-                <KeyRound /> Revoke sessions
-              </Button>
-              {!user.isAdmin &&
+              {can("accounts.revoke_sessions") && (
+                <Button
+                  variant="outline"
+                  disabled={busy !== null}
+                  onClick={() => setConfirm("revoke")}
+                >
+                  <KeyRound /> Revoke sessions
+                </Button>
+              )}
+              {!user.isAdmin && can("accounts.suspend") &&
                 (user.suspendedAt ? (
                   <Button disabled={busy !== null} onClick={() => void run("unsuspend")}>
                     {busy === "unsuspend" ? <Loader2 className="animate-spin" /> : <ShieldOff />}

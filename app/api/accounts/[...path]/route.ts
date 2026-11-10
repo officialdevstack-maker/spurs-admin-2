@@ -3,6 +3,7 @@
 import { accountsFetch } from "@/lib/accounts-server";
 import { canAccessDashboard, hasPermission } from "@/lib/permissions";
 import { getAdmin, type SessionUser } from "@/lib/session";
+import { expectedOrigin } from "@/lib/origin";
 
 type Rule = { method: "GET" | "POST"; pattern: RegExp };
 
@@ -77,11 +78,14 @@ async function handler(
   }
 
   const requiredPermission = permissionFor(subpath, request.method);
-  if (requiredPermission && !hasPermission(admin.permissions, requiredPermission)) {
-    return NextResponse.json({ message: `Missing required permission: ${requiredPermission}.` }, { status: 403 });
+  if (!requiredPermission || !hasPermission(admin.permissions, requiredPermission)) {
+    return NextResponse.json(
+      { message: `Missing required permission: ${requiredPermission ?? "unmapped route"}.` },
+      { status: 403 },
+    );
   }
 
-  if (request.method === "POST" && request.headers.get("origin") !== request.nextUrl.origin) {
+  if (request.method === "POST" && request.headers.get("origin") !== expectedOrigin(request)) {
     return NextResponse.json({ message: "Invalid request origin." }, { status: 403 });
   }
 
