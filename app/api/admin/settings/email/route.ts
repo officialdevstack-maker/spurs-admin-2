@@ -27,14 +27,21 @@ export async function PUT(request: Request) {
     }
 
     const values = body as Record<string, unknown>;
-    const fields = ["host", "username", "fromName", "fromEmail", "replyTo"] as const;
-    if (fields.some((field) => typeof values[field] !== "string")) {
+    const { host: hostValue, username: usernameValue, fromName: fromNameValue,
+      fromEmail: fromEmailValue, replyTo: replyToValue } = values;
+    if (
+      typeof hostValue !== "string" ||
+      typeof usernameValue !== "string" ||
+      typeof fromNameValue !== "string" ||
+      typeof fromEmailValue !== "string" ||
+      typeof replyToValue !== "string"
+    ) {
       return NextResponse.json({ message: "Invalid email settings." }, { status: 422 });
     }
     if (
       typeof values.enabled !== "boolean" ||
       typeof values.secure !== "boolean" ||
-      (typeof values.port !== "number" && typeof values.port !== "string") ||
+      typeof values.port !== "number" ||
       (values.password !== undefined && typeof values.password !== "string") ||
       (values.clearPassword !== undefined && typeof values.clearPassword !== "boolean")
     ) {
@@ -43,13 +50,13 @@ export async function PUT(request: Request) {
 
     const str = (value: string) => value.trim();
     const enabled = values.enabled;
-    const host = str(values.host as string);
-    const port = Number(values.port);
+    const host = str(hostValue);
+    const port = values.port;
     const secure = values.secure;
-    const username = str(values.username as string);
-    const fromName = str(values.fromName as string);
-    const fromEmail = str(values.fromEmail as string).toLowerCase();
-    const replyTo = str(values.replyTo as string).toLowerCase();
+    const username = str(usernameValue);
+    const fromName = str(fromNameValue);
+    const fromEmail = str(fromEmailValue).toLowerCase();
+    const replyTo = str(replyToValue).toLowerCase();
     const password = typeof values.password === "string" ? values.password : "";
     const clearPassword = values.clearPassword === true;
 

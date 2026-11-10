@@ -46,9 +46,15 @@ export default function EmailSettingsForm() {
     setSaving(true);
     setError(null);
     try {
-      const { passwordSet: _passwordSet, ...config } = settings;
       const saved = await updateEmailSettings({
-        ...config,
+        enabled: settings.enabled,
+        host: settings.host,
+        port: settings.port,
+        secure: settings.secure,
+        username: settings.username,
+        fromName: settings.fromName,
+        fromEmail: settings.fromEmail,
+        replyTo: settings.replyTo,
         password: password || undefined,
         clearPassword,
       });
@@ -156,7 +162,10 @@ export default function EmailSettingsForm() {
                     type="checkbox"
                     checked={clearPassword}
                     disabled={saving}
-                    onChange={(event) => setClearPassword(event.target.checked)}
+                    onChange={(event) => {
+                      setClearPassword(event.target.checked);
+                      if (event.target.checked) setPassword("");
+                    }}
                   />
                   Remove the saved password
                 </label>

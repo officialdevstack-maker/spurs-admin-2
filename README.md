@@ -8,6 +8,7 @@ Set these values in an untracked `.env.local` file or in the deployment environm
 ```env
 DATABASE_URL=postgresql://user:password@host:5432/database
 SESSION_SECRET=replace-with-at-least-32-random-bytes
+SETTINGS_ENCRYPTION_KEY=replace-with-a-base64-encoded-32-byte-key
 SESSION_COOKIE_INSECURE=false
 APP_ORIGIN=https://admin.example.com
 ACCOUNTS_API_URL=https://api.example.com
@@ -20,6 +21,10 @@ Never enable this setting in production behind HTTPS.
 `APP_ORIGIN` must be the admin panel's public origin (scheme and host, without a path). It is
 used to validate state-changing request origins; configure it when the app is behind a reverse
 proxy.
+
+`SETTINGS_ENCRYPTION_KEY` encrypts saved SMTP passwords. Generate a key with
+`node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"` and keep it
+private and backed up; saved passwords cannot be decrypted without the same key.
 
 `ACCOUNTS_API_URL` must be the accounts backend origin (without an `/api` path).
 `ACCOUNTS_INTERNAL_SECRET` must match the backend's `INTERNAL_SHARED_SECRET`.

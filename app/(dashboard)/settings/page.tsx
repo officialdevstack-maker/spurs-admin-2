@@ -1,6 +1,12 @@
-import EmailSettingsForm from "./email-settings-form";
+import SettingsTabs from "./settings-tabs";
 
-export default function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string | string[] }>;
+}) {
+  const { tab } = await searchParams;
+
   return (
     <div className="space-y-6">
       <div>
@@ -9,7 +15,7 @@ export default function SettingsPage() {
           Global settings shared by every website and service.
         </p>
       </div>
-      <EmailSettingsForm />
+      <SettingsTabs initialTab={typeof tab === "string" ? tab : "email"} />
     </div>
   );
 }
