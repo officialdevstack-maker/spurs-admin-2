@@ -110,3 +110,18 @@ export async function updateAccountSettings(
   const res = await api<AccountSettings>("/settings", { method: "POST", body: changes });
   return res.data;
 }
+
+export type CreateUserInput = {
+  fullname: string;
+  email: string;
+  phone: string;
+  password: string;
+  account_type: AccountType;
+  is_verified: boolean;
+  send_welcome: boolean;
+};
+
+export async function createUser(input: CreateUserInput): Promise<ApiUser> {
+  const res = await api<ApiUser>("/users", { method: "POST", body: input });
+  return res.data;
+}

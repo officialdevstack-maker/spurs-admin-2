@@ -12,6 +12,7 @@ const ALLOWED: Rule[] = [
   { method: "GET", pattern: /^settings$/ },
   { method: "POST", pattern: /^settings$/ },
   { method: "GET", pattern: /^users$/ },
+  { method: "POST", pattern: /^users$/ },
   { method: "GET", pattern: /^users\/\d+$/ },
   {
     method: "POST",
@@ -58,7 +59,8 @@ async function handler(
     const target = subpath.startsWith("stats/")
       ? `/api/internal/${subpath}`
       : `/api/internal/admin/${subpath}`;
-    const hasBody = request.method === "POST" && subpath === "settings";
+    const hasBody =
+      request.method === "POST" && (subpath === "settings" || subpath === "users");
     const response = await accountsFetch(
       `${target}${request.nextUrl.search}`,
       {

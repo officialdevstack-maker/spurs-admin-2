@@ -7,6 +7,17 @@ export type Meta = {
   to: number | null;
 };
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly errors?: Record<string, string[]>,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export async function api<T = unknown>(
   path: string,
   opts: {
@@ -34,14 +45,17 @@ export async function api<T = unknown>(
     message?: string;
     data?: T;
     meta?: Meta;
+    errors?: Record<string, string[]>;
   };
 
   if (!response.ok) {
-    throw new Error(
+    throw new ApiError(
       json.message ??
         (response.status === 429
           ? "Too many requests. Please try again later."
           : "Request failed"),
+      response.status,
+      json.errors,
     );
   }
   return json as { message: string; data: T; meta?: Meta };

@@ -8,12 +8,14 @@ import {
   Eye,
   KeyRound,
   MoreHorizontal,
+  Plus,
   Search,
   ShieldCheck,
   ShieldOff,
 } from "lucide-react";
 
 import { UserBadges } from "@/components/user-badges";
+import { CreateUserDialog } from "@/components/create-user-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -51,6 +53,7 @@ export default function AccountsList({ initialStatus }: { initialStatus: StatusF
   const [notice, setNotice] = React.useState<Notice | null>(null);
   const [busyUser, setBusyUser] = React.useState<number | null>(null);
   const [reload, setReload] = React.useState(0);
+  const [createOpen, setCreateOpen] = React.useState(false);
   const queryKey = JSON.stringify([page, search, status, reload]);
 
   React.useEffect(() => {
@@ -110,11 +113,16 @@ export default function AccountsList({ initialStatus }: { initialStatus: StatusF
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Accounts</h2>
-        <p className="text-sm text-muted-foreground">
-          Search and manage user accounts on the accounts service.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Accounts</h2>
+          <p className="text-sm text-muted-foreground">
+            Search and manage user accounts on the accounts service.
+          </p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus /> New user
+        </Button>
       </div>
 
       <form
@@ -271,6 +279,17 @@ export default function AccountsList({ initialStatus }: { initialStatus: StatusF
           </Button>
         </div>
       </div>
+
+      <CreateUserDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(user) => {
+          setPage(1);
+          setStatus("all");
+          setNotice({ kind: "success", message: `${user.fullname} was created.` });
+          setReload((value) => value + 1);
+        }}
+      />
     </div>
   );
 }
