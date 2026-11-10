@@ -44,12 +44,12 @@ export async function POST(request: Request) {
       email: string;
       password: string;
       is_admin: boolean;
-      suspended_at: Date | null;
+      admin_suspended_at: Date | null;
       role_name: string | null;
       dashboards: string[] | null;
       permissions: string[] | null;
     }>(
-      `select u.id, u.fullname, u.email, u.password, u.is_admin, u.suspended_at,
+      `select u.id, u.fullname, u.email, u.password, u.is_admin, u.admin_suspended_at,
               r.name as role_name,
               coalesce(r.dashboards, '{}') as dashboards,
               coalesce(r.permissions, '{}') as permissions
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     const user = rows[0];
     const passwordMatches = await bcrypt.compare(password, user?.password ?? DUMMY_HASH);
 
-    if (!user || !passwordMatches || !user.is_admin || user.suspended_at) {
+    if (!user || !passwordMatches || !user.is_admin || user.admin_suspended_at) {
       const state =
         current && current.resetAt > Date.now()
           ? current

@@ -8,7 +8,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { canAccessDashboard, type PermissionName } from "@/lib/permissions";
+import { DASHBOARD_SLUGS } from "@/lib/dashboard-slugs";
+import { canAccessDashboard, hasPermission, type PermissionName } from "@/lib/permissions";
 
 export type NavItem = {
   title: string;
@@ -20,7 +21,7 @@ export type NavItem = {
 };
 
 export type Dashboard = {
-  slug: string;
+  slug: (typeof DASHBOARD_SLUGS)[number];
   name: string;
   description: string;
   basePath: string;
@@ -58,10 +59,30 @@ export const DASHBOARDS: Dashboard[] = [
     description: "Accounts admin dashboard",
     basePath: "/accounts",
     nav: [
-      { title: "Overview", href: "/accounts", icon: LayoutDashboard },
-      { title: "Accounts", href: "/accounts/list", icon: Wallet },
-      { title: "Transactions", href: "/accounts/transactions", icon: Receipt },
-      { title: "Settings", href: "/accounts/settings", icon: Settings },
+      {
+        title: "Overview",
+        href: "/accounts",
+        icon: LayoutDashboard,
+        requiredPermission: "accounts.view",
+      },
+      {
+        title: "Accounts",
+        href: "/accounts/list",
+        icon: Wallet,
+        requiredPermission: "accounts.view",
+      },
+      {
+        title: "Transactions",
+        href: "/accounts/transactions",
+        icon: Receipt,
+        requiredPermission: "accounts.view",
+      },
+      {
+        title: "Settings",
+        href: "/accounts/settings",
+        icon: Settings,
+        requiredPermission: "accounts.settings",
+      },
     ],
   },
 ];
@@ -93,13 +114,30 @@ export function firstAccessibleDashboard(allowed: string[]): Dashboard | null {
 }
 
 export function requiredPermissionForPath(pathname: string): PermissionName | null {
+  let best: NavItem | null = null;
   for (const dashboard of DASHBOARDS) {
-    const item = dashboard.nav.find(
-      (navItem) =>
-        navItem.requiredPermission &&
-        (pathname === navItem.href || pathname.startsWith(`${navItem.href}/`)),
-    );
-    if (item?.requiredPermission) return item.requiredPermission;
+    for (const item of dashboard.nav) {
+      const matches =
+        pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`));
+      if (matches && (!best || item.href.length > best.href.length)) best = item;
+    }
+  }
+  return best?.requiredPermission ?? null;
+}
+
+export function firstAccessibleHref(dashboard: Dashboard, permissions: string[]) {
+  return (
+    dashboard.nav.find(
+      (item) => !item.requiredPermission || hasPermission(permissions, item.requiredPermission),
+    )?.href ?? null
+  );
+}
+
+export function landingHref(dashboards: string[], permissions: string[]) {
+  for (const dashboard of DASHBOARDS) {
+    if (!canAccessDashboard(dashboards, dashboard.slug)) continue;
+    const href = firstAccessibleHref(dashboard, permissions);
+    if (href) return href;
   }
   return null;
 }

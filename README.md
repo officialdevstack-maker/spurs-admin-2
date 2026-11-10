@@ -9,6 +9,7 @@ Set these values in an untracked `.env.local` file or in the deployment environm
 DATABASE_URL=postgresql://user:password@host:5432/database
 SESSION_SECRET=replace-with-at-least-32-random-bytes
 SESSION_COOKIE_INSECURE=false
+APP_ORIGIN=https://admin.example.com
 ACCOUNTS_API_URL=https://api.example.com
 ACCOUNTS_INTERNAL_SECRET=same-value-as-INTERNAL_SHARED_SECRET-on-the-accounts-backend
 ```
@@ -39,8 +40,10 @@ migrations in `admin_schema_migrations`. Migrations run transactionally. If the 
 has a `users` table, do not apply this standalone migration; use the existing table or adapt its
 schema instead.
 
-The migration creates an empty table with `id`, `fullname`, `email`, `password`, `is_admin`,
-`suspended_at`, and `updated_at` columns. It does not create an admin account. To create the initial
+The migrations create an empty table with `id`, `fullname`, `email`, `password`, `is_admin`,
+`suspended_at`, `admin_suspended_at`, and `updated_at` columns. `suspended_at` applies to the
+main account; `admin_suspended_at` only blocks access to this panel. The migrations do not create an
+admin account. To create the initial
 admin, add `PANEL_ADMIN_FULLNAME`, `PANEL_ADMIN_EMAIL`, and `PANEL_ADMIN_PASSWORD` to your ignored
 `.env.local` file, then run:
 

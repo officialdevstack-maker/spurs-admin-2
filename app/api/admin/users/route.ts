@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getPool } from "@/lib/db";
 import { requirePermission } from "@/lib/admin-guard";
+import { canGrant } from "@/lib/permissions";
 
 export async function GET(request: Request) {
   try {
@@ -10,7 +11,7 @@ export async function GET(request: Request) {
     if ("error" in guard) return guard.error;
 
     const { rows } = await getPool().query(
-      `select u.id, u.fullname, u.email, u.suspended_at as "suspendedAt",
+      `select u.id, u.fullname, u.email, u.admin_suspended_at as "suspendedAt",
               u.role_id as "roleId", r.name as "roleName"
        from users u left join admin_roles r on r.id = u.role_id
        where u.is_admin = true order by u.id`,
@@ -47,6 +48,24 @@ export async function POST(request: Request) {
     }
     if (!Number.isInteger(roleId) || roleId < 1) {
       return NextResponse.json({ message: "Choose a role." }, { status: 422 });
+    }
+
+    const { rows: roleRows } = await getPool().query<{
+      dashboards: string[];
+      permissions: string[];
+    }>(
+      `select dashboards, coalesce(permissions, '{}') as permissions
+       from admin_roles where id = $1`,
+      [roleId],
+    );
+    if (!roleRows.length) {
+      return NextResponse.json({ message: "Role not found." }, { status: 422 });
+    }
+    if (!canGrant(guard.admin, roleRows[0])) {
+      return NextResponse.json(
+        { message: "You can't assign a role with more access than you have." },
+        { status: 403 },
+      );
     }
 
     const hash = await bcrypt.hash(password, 12);

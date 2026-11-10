@@ -14,6 +14,19 @@ export const PERMISSION_CATALOG = {
 
 export type PermissionName = keyof typeof PERMISSION_CATALOG;
 
+export const PERMISSION_DASHBOARD: Record<PermissionName, string> = {
+  "accounts.view": "accounts",
+  "accounts.create": "accounts",
+  "accounts.suspend": "accounts",
+  "accounts.verify": "accounts",
+  "accounts.revoke_sessions": "accounts",
+  "accounts.settings": "accounts",
+  "admins.manage": "default",
+  "roles.manage": "default",
+};
+
+type RoleAccess = { dashboards: string[]; permissions: string[] };
+
 export function normalizePermissions(values?: Array<string | null | undefined> | null) {
   const seen = new Set<string>();
   const cleaned: string[] = [];
@@ -48,4 +61,15 @@ export function hasPermission(permissions: string[] = [], permission: string) {
 
 export function canAccessDashboard(dashboards: string[] = [], slug: string) {
   return dashboards.includes(ALL_ACCESS) || dashboards.includes(slug);
+}
+
+export function canGrant(actor: RoleAccess, role: RoleAccess) {
+  if (isSuperAdmin(actor.permissions)) return true;
+  if (role.permissions.includes(ALL_PERMISSIONS) || role.dashboards.includes(ALL_ACCESS)) {
+    return false;
+  }
+  return (
+    role.permissions.every((permission) => hasPermission(actor.permissions, permission)) &&
+    role.dashboards.every((dashboard) => canAccessDashboard(actor.dashboards, dashboard))
+  );
 }

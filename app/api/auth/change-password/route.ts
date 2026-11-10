@@ -3,11 +3,16 @@ import { NextResponse } from "next/server";
 
 import { getPool } from "@/lib/db";
 import { getAdmin } from "@/lib/session";
+import { expectedOrigin } from "@/lib/origin";
 
 
 
 export async function POST(request: Request) {
   try {
+    if (request.headers.get("origin") !== expectedOrigin(request)) {
+      return NextResponse.json({ message: "Invalid request origin." }, { status: 403 });
+    }
+
     const admin = await getAdmin();
     if (!admin) {
       return NextResponse.json({ message: "Unauthenticated" }, { status: 401 });
@@ -21,9 +26,9 @@ export async function POST(request: Request) {
     }
     const current = typeof body?.current === "string" ? body.current : "";
     const next = typeof body?.next === "string" ? body.next : "";
-    if (next.length < 8) {
+    if (next.length < 12) {
       return NextResponse.json(
-        { message: "New password must be at least 8 characters." },
+        { message: "New password must be at least 12 characters." },
         { status: 422 },
       );
     }
@@ -37,7 +42,7 @@ export async function POST(request: Request) {
     const pool = getPool();
     const { rows } = await pool.query<{ password: string }>(
       `select password from users
-       where id = $1 and is_admin = true and suspended_at is null`,
+       where id = $1 and is_admin = true and admin_suspended_at is null`,
       [admin.id],
     );
     const currentHash = rows[0]?.password;
@@ -52,7 +57,7 @@ export async function POST(request: Request) {
     const result = await pool.query(
       `update users set password = $1, updated_at = now()
        where id = $2 and password = $3
-         and is_admin = true and suspended_at is null
+         and is_admin = true and admin_suspended_at is null
        returning id`,
       [nextHash, admin.id, currentHash],
     );

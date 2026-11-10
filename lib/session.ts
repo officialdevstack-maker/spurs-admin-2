@@ -64,7 +64,7 @@ export async function getAdmin(): Promise<SessionUser | null> {
             coalesce(r.permissions, '{}') as permissions
      from users u
      left join admin_roles r on r.id = u.role_id
-     where u.id = $1 and u.is_admin = true and u.suspended_at is null`,
+     where u.id = $1 and u.is_admin = true and u.admin_suspended_at is null`,
     [id],
   );
   const user = rows[0];

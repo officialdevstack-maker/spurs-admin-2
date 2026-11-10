@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 
 import { getPool } from "@/lib/db";
-import { requirePermission } from "@/lib/admin-guard";
-import { isPermissionAllowed, normalizePermissions } from "@/lib/permissions";
+import { requireAnyPermission, requirePermission } from "@/lib/admin-guard";
+import { isDashboardSlug } from "@/lib/dashboard-slugs";
+import { canGrant, isPermissionAllowed, normalizePermissions } from "@/lib/permissions";
 
 export async function GET(request: Request) {
   try {
-    const guard = await requirePermission(request, "roles.manage");
+    const guard = await requireAnyPermission(request, ["roles.manage", "admins.manage"]);
     if ("error" in guard) return guard.error;
 
     const { rows } = await getPool().query(
@@ -28,16 +29,24 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     const name = typeof body?.name === "string" ? body.name.trim() : "";
     const description = typeof body?.description === "string" ? body.description.trim() : "";
-    const dashboards = Array.isArray(body?.dashboards)
-      ? body.dashboards
-          .filter((value): value is string => typeof value === "string")
-          .filter((value, index, list) => list.indexOf(value) === index)
-      : [];
-    const permissions = Array.isArray(body?.permissions)
-      ? normalizePermissions(
-          body.permissions.map((value) => (typeof value === "string" ? value : undefined)),
-        )
-      : [];
+    const dashboardValues = Array.isArray(body?.dashboards) ? body.dashboards : [];
+    const permissionValues = Array.isArray(body?.permissions) ? body.permissions : [];
+    if (dashboardValues.some((value) => typeof value !== "string" || !isDashboardSlug(value))) {
+      return NextResponse.json({ message: "Unknown dashboard." }, { status: 422 });
+    }
+    if (
+      permissionValues.some(
+        (value) => typeof value !== "string" || !isPermissionAllowed(value),
+      )
+    ) {
+      return NextResponse.json({ message: "One or more permissions are invalid." }, { status: 422 });
+    }
+    const dashboards = dashboardValues
+      .filter((value): value is string => typeof value === "string")
+      .filter((value, index, list) => list.indexOf(value) === index);
+    const permissions = normalizePermissions(
+      permissionValues.map((value) => (typeof value === "string" ? value : undefined)),
+    );
 
     if (!name || name.length > 120) {
       return NextResponse.json({ message: "Role name is required." }, { status: 422 });
@@ -48,8 +57,11 @@ export async function POST(request: Request) {
     if (!dashboards.length) {
       return NextResponse.json({ message: "Choose at least one dashboard." }, { status: 422 });
     }
-    if (permissions.some((value) => !isPermissionAllowed(value))) {
-      return NextResponse.json({ message: "One or more permissions are invalid." }, { status: 422 });
+    if (!canGrant(guard.admin, { dashboards, permissions })) {
+      return NextResponse.json(
+        { message: "You can't grant access you don't have." },
+        { status: 403 },
+      );
     }
 
     const { rows } = await getPool().query(
