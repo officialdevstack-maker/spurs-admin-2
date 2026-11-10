@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 import { AppSidebar } from "@/components/app-sidebar";
@@ -9,14 +9,37 @@ import { useAuth } from "@/components/auth-provider";
 import { DashboardSwitcher } from "@/components/dashboard-switcher";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { canAccessDashboard, isSuperAdmin } from "@/lib/permissions";
+import { firstAccessibleDashboard, getDashboard, isSuperOnlyPath } from "@/lib/dashboards";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const router = useRouter();
   const { user, ready } = useAuth();
 
   React.useEffect(() => {
-    if (ready && !user) router.replace("/login");
-  }, [ready, user, router]);
+    if (!ready) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    const dashboard = getDashboard(pathname);
+    const allowed = user.dashboards ?? [];
+    const navigateToFirstAccessible = () => {
+      const first = firstAccessibleDashboard(allowed);
+      router.replace(first?.basePath ?? "/login");
+    };
+
+    if (!canAccessDashboard(allowed, dashboard.slug)) {
+      navigateToFirstAccessible();
+      return;
+    }
+
+    if (isSuperOnlyPath(pathname) && !isSuperAdmin(allowed)) {
+      navigateToFirstAccessible();
+    }
+  }, [pathname, ready, router, user]);
 
   if (!ready || !user) {
     return (

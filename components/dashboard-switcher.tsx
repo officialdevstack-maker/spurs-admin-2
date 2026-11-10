@@ -4,6 +4,7 @@ import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Check, ChevronsUpDown } from "lucide-react";
 
+import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,11 +15,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DASHBOARDS, getDashboard } from "@/lib/dashboards";
+import { canAccessDashboard } from "@/lib/permissions";
 
 export function DashboardSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
-  const current = getDashboard(pathname);
+  const { user } = useAuth();
+  const allowed = user?.dashboards ?? [];
+  const available = DASHBOARDS.filter((dashboard) => canAccessDashboard(allowed, dashboard.slug));
+  const current = available.find((dashboard) => dashboard.slug === getDashboard(pathname).slug) ?? available[0] ?? getDashboard(pathname);
 
   return (
     <DropdownMenu>
@@ -31,7 +36,7 @@ export function DashboardSwitcher() {
       <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Dashboards</DropdownMenuLabel>
-          {DASHBOARDS.map((dashboard) => (
+          {available.map((dashboard) => (
             <DropdownMenuItem
               key={dashboard.slug}
               onClick={() => {

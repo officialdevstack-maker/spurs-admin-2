@@ -32,6 +32,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { getDashboard } from "@/lib/dashboards";
+import { isSuperAdmin } from "@/lib/permissions";
 import { SUBDOMAINS, subdomainUrl } from "@/lib/subdomains";
 
 export function AppSidebar() {
@@ -39,6 +40,10 @@ export function AppSidebar() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const dashboard = getDashboard(pathname);
+  const allowedDashboards = user?.dashboards ?? [];
+  const visibleNav = dashboard.nav.filter(
+    (item) => !item.superOnly || isSuperAdmin(allowedDashboards),
+  );
 
   return (
       <Sidebar collapsible="icon">
@@ -64,7 +69,7 @@ export function AppSidebar() {
           <SidebarGroup>
             <SidebarGroupLabel>{dashboard.name}</SidebarGroupLabel>
             <SidebarMenu>
-              {dashboard.nav.map((item) => (
+              {visibleNav.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     render={<Link href={item.href} />}

@@ -10,7 +10,12 @@ export async function GET() {
       return NextResponse.json({ message: "Not signed in." }, { status: 401 });
     }
     return NextResponse.json({
-      user: { email: admin.email, name: admin.name },
+      user: {
+        email: admin.email,
+        name: admin.name,
+        role: admin.role,
+        dashboards: admin.dashboards,
+      },
     });
   } catch (error) {
     console.error("Panel session verification is unavailable:", error);

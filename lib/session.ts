@@ -9,7 +9,13 @@ import {
   verifySessionToken,
 } from "@/lib/session-token";
 
-export type SessionUser = { id: number; email: string; name: string };
+export type SessionUser = {
+  id: number;
+  email: string;
+  name: string;
+  role: string | null;
+  dashboards: string[];
+};
 
 export async function createSession(id: number) {
   const token = await new SignJWT({})
@@ -47,11 +53,24 @@ export async function getAdmin(): Promise<SessionUser | null> {
     id: number;
     fullname: string;
     email: string;
+    role_name: string | null;
+    dashboards: string[] | null;
   }>(
-    `select id, fullname, email from users
-     where id = $1 and is_admin = true and suspended_at is null`,
+    `select u.id, u.fullname, u.email,
+            r.name as role_name, r.dashboards as dashboards
+     from users u
+     left join admin_roles r on r.id = u.role_id
+     where u.id = $1 and u.is_admin = true and u.suspended_at is null`,
     [id],
   );
   const user = rows[0];
-  return user ? { id: Number(user.id), email: user.email, name: user.fullname } : null;
+  return user
+    ? {
+        id: Number(user.id),
+        email: user.email,
+        name: user.fullname,
+        role: user.role_name,
+        dashboards: user.dashboards ?? [],
+      }
+    : null;
 }

@@ -1,4 +1,9 @@
-export type AdminUser = { email: string; name: string };
+export type AdminUser = {
+  email: string;
+  name: string;
+  role: string | null;
+  dashboards: string[];
+};
 
 type AuthResponse = { user?: AdminUser; message?: string };
 

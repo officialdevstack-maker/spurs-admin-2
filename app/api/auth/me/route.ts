@@ -11,7 +11,12 @@ export async function GET() {
       return NextResponse.json({ message: "Unauthenticated" }, { status: 401 });
     }
     return NextResponse.json({
-      user: { email: admin.email, name: admin.name },
+      user: {
+        email: admin.email,
+        name: admin.name,
+        role: admin.role,
+        dashboards: admin.dashboards,
+      },
     });
   } catch (error) {
     console.error("Could not verify admin session:", error);

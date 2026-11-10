@@ -2,12 +2,21 @@ import {
   LayoutDashboard,
   Receipt,
   Settings,
+  ShieldCheck,
   Users,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
 
-export type NavItem = { title: string; href: string; icon: LucideIcon };
+import { canAccessDashboard } from "@/lib/permissions";
+
+export type NavItem = {
+  title: string;
+  href: string;
+  icon: LucideIcon;
+  /** Only visible to admins with full access (managing admins and roles). */
+  superOnly?: boolean;
+};
 
 export type Dashboard = {
   slug: string;
@@ -25,7 +34,8 @@ export const DASHBOARDS: Dashboard[] = [
     basePath: "/",
     nav: [
       { title: "Dashboard", href: "/", icon: LayoutDashboard },
-      { title: "Users", href: "/users", icon: Users },
+      { title: "Admin users", href: "/users", icon: Users, superOnly: true },
+      { title: "Roles", href: "/roles", icon: ShieldCheck, superOnly: true },
       { title: "Settings", href: "/settings", icon: Settings },
     ],
   },
@@ -51,5 +61,19 @@ export function getDashboard(pathname: string): Dashboard {
         (pathname === dashboard.basePath ||
           pathname.startsWith(`${dashboard.basePath}/`)),
     ) ?? DASHBOARDS[0]
+  );
+}
+
+export function firstAccessibleDashboard(allowed: string[]): Dashboard | null {
+  return DASHBOARDS.find((d) => canAccessDashboard(allowed, d.slug)) ?? null;
+}
+
+export function isSuperOnlyPath(pathname: string) {
+  return DASHBOARDS.some((d) =>
+    d.nav.some(
+      (item) =>
+        item.superOnly &&
+        (pathname === item.href || pathname.startsWith(`${item.href}/`)),
+    ),
   );
 }

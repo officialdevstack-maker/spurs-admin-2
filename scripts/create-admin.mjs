@@ -35,8 +35,9 @@ async function createAdmin() {
 
   try {
     const { rows } = await pool.query(
-      `INSERT INTO users (fullname, email, password, is_admin)
-       VALUES ($1, $2, $3, TRUE)
+      `INSERT INTO users (fullname, email, password, is_admin, role_id)
+       VALUES ($1, $2, $3, TRUE,
+         (SELECT id FROM admin_roles WHERE lower(name) = 'super admin'))
        ON CONFLICT DO NOTHING
        RETURNING id`,
       [fullname, email, passwordHash],
