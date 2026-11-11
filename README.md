@@ -72,6 +72,42 @@ The Accounts dashboard Settings page reads and updates the accounts service's wh
 settings through that proxy; apply the pending settings migration in `node-accounts/backend`
 before using it.
 
+## Server-to-server email API
+
+The `POST /api/v1/email/send` endpoint sends email using the SMTP configuration saved in
+**Settings → Email**. It requires a bearer API key and accepts `to` (one address or an array of
+up to 50), `subject`, and at least one of `text` or `html`. Requests are limited to 60 per minute
+per key per app instance.
+
+Apply pending migrations with `npm run db:migrate`, then create a separate key for each calling
+app by setting `API_KEY_NAME` and running `npm run db:create-api-key`. The generated `spk_...` key
+is displayed once; store it as a secret in the calling app. To revoke a key, set its `revoked_at`
+in the `api_keys` table, for example:
+
+```sql
+UPDATE api_keys SET revoked_at = now() WHERE name = 'accounts-backend' AND revoked_at IS NULL;
+```
+
+Call the endpoint only from the calling app's server, never from browser code:
+
+```ts
+await fetch(`${process.env.ADMIN_API_URL}/api/v1/email/send`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${process.env.ADMIN_API_KEY}`,
+  },
+  body: JSON.stringify({
+    to: "user@example.com",
+    subject: "Welcome",
+    text: "Thanks for signing up.",
+  }),
+});
+```
+
+Successful requests are recorded in `email_log`. The rate limiter is per application instance;
+deployments with multiple instances should use a shared rate-limit store.
+
 ## Getting Started
 
 First, run the development server:
