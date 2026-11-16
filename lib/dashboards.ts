@@ -1,4 +1,5 @@
 import {
+  CreditCard,
   LayoutDashboard,
   Receipt,
   Settings,
@@ -87,6 +88,26 @@ export const DASHBOARDS: Dashboard[] = [
         href: "/accounts/settings",
         icon: Settings,
         requiredPermission: "accounts.settings",
+      },
+    ],
+  },
+  {
+    slug: "pay",
+    name: "Spurs Pay",
+    description: "Spurs Pay admin dashboard",
+    basePath: "/pay",
+    nav: [
+      {
+        title: "Overview",
+        href: "/pay",
+        icon: LayoutDashboard,
+        requiredPermission: "pay.view",
+      },
+      {
+        title: "Checkouts",
+        href: "/pay/checkouts",
+        icon: CreditCard,
+        requiredPermission: "pay.view",
       },
     ],
   },

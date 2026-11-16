@@ -13,6 +13,8 @@ SESSION_COOKIE_INSECURE=false
 APP_ORIGIN=https://admin.example.com
 ACCOUNTS_API_URL=https://api.example.com
 ACCOUNTS_INTERNAL_SECRET=same-value-as-INTERNAL_SHARED_SECRET-on-the-accounts-backend
+PAY_API_URL=https://pay.example.com
+PAY_INTERNAL_SECRET=same-value-as-INTERNAL_SHARED_SECRET-on-spurs-pay
 ```
 
 For HTTP testing with a production build, set `SESSION_COOKIE_INSECURE=true` in `.env.local`.
@@ -36,6 +38,12 @@ URL's origin and, outside production, logs the complete upstream URL and status 
 requests. If that URL points back to the admin app, configure the accounts backend on a
 different port and set `ACCOUNTS_API_URL` to that origin (for example,
 `http://localhost:4000`); restart both apps after changing their port configuration.
+
+`PAY_API_URL` must be the Spurs Pay origin (without an `/api` path), and
+`PAY_INTERNAL_SECRET` must match Spurs Pay's `INTERNAL_SHARED_SECRET`. Admin 2's
+Spurs Pay dashboard uses a server-side proxy for read-only checkout stats and session
+listing; the secret is never sent to the browser. Assign the `pay` dashboard and
+`pay.view` permission to any admin role that should use it.
 
 The admin panel authenticates against the PostgreSQL `users` table. To apply pending migrations from the
 `migrations` directory to the configured database, run:
