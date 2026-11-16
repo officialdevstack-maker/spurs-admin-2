@@ -22,6 +22,7 @@ export default function PayProviderSettingsForm() {
   const [settings, setSettings] = React.useState<PayProviderSettings | null>(null);
   const [secretKey, setSecretKey] = React.useState("");
   const [webhookSecret, setWebhookSecret] = React.useState("");
+  const [reason, setReason] = React.useState("");
   const [clearSecretKey, setClearSecretKey] = React.useState(false);
   const [clearWebhookSecret, setClearWebhookSecret] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -50,6 +51,7 @@ export default function PayProviderSettingsForm() {
     try {
       const saved = await updatePayProviderSettings({
         provider: settings.provider,
+        reason,
         secretKey: secretKey || undefined,
         webhookSecret: webhookSecret || undefined,
         clearSecretKey,
@@ -58,6 +60,7 @@ export default function PayProviderSettingsForm() {
       setSettings(saved);
       setSecretKey("");
       setWebhookSecret("");
+      setReason("");
       setClearSecretKey(false);
       setClearWebhookSecret(false);
       toast.success("Pay provider settings saved.");
@@ -170,6 +173,18 @@ export default function PayProviderSettingsForm() {
         </CardContent>
       </Card>
 
+      <div className="space-y-2">
+        <Label htmlFor="pay-provider-reason">Reason for this change</Label>
+        <textarea
+          id="pay-provider-reason"
+          className="min-h-20 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+          required
+          maxLength={1000}
+          value={reason}
+          disabled={saving}
+          onChange={(event) => setReason(event.target.value)}
+        />
+      </div>
       <Button type="submit" disabled={saving}>
         {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
         {saving ? "Saving..." : "Save provider settings"}

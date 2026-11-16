@@ -47,6 +47,8 @@ async function handler(
   try {
     const response = await payFetch(
       `/api/internal/admin/${subpath}${request.nextUrl.search}`,
+      admin,
+      request,
     );
     const rejected = response.status === 401 || response.status === 403;
     return new NextResponse(

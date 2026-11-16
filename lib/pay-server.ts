@@ -1,5 +1,8 @@
 import "server-only";
 
+import { createPayAdminAssertion } from "@/lib/pay-admin-assertion";
+import type { SessionUser } from "@/lib/session";
+
 function getBaseUrl() {
   const value = process.env.PAY_API_URL;
   if (!value) throw new Error("PAY_API_URL is not configured");
@@ -10,16 +13,10 @@ function getBaseUrl() {
   return new URL(url.origin);
 }
 
-export async function payFetch(path: string) {
-  const secret = process.env.PAY_INTERNAL_SECRET?.trim();
-  if (!secret) throw new Error("PAY_INTERNAL_SECRET is not configured");
-  if (secret.length < 32) {
-    throw new Error("PAY_INTERNAL_SECRET must be at least 32 characters");
-  }
-
+export async function payFetch(path: string, admin: SessionUser, request: Request) {
   const headers = new Headers({
     Accept: "application/json",
-    "x-internal-secret": secret,
+    Authorization: `Bearer ${await createPayAdminAssertion(admin, request)}`,
   });
   const target = new URL(path, getBaseUrl());
   return fetch(target, {

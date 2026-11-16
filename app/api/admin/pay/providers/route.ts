@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requirePermission } from "@/lib/admin-guard";
+import { requirePermission, requireRecentAuth } from "@/lib/admin-guard";
 import {
   getPayProviderSettings,
   savePayProviderSettings,
@@ -24,6 +24,8 @@ export async function PUT(request: Request) {
   try {
     const guard = await requirePermission(request, "pay.providers.manage");
     if ("error" in guard) return guard.error;
+    const stepUpError = requireRecentAuth(guard.admin, "/pay/providers");
+    if (stepUpError) return stepUpError;
 
     const body: unknown = await request.json().catch(() => null);
     if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -31,6 +33,13 @@ export async function PUT(request: Request) {
     }
 
     const values = body as Record<string, unknown>;
+    const reason = typeof values.reason === "string" ? values.reason.trim() : "";
+    if (!reason || reason.length > 1000) {
+      return NextResponse.json(
+        { message: "Enter a reason for changing Pay provider settings." },
+        { status: 422 },
+      );
+    }
     if (
       values.provider !== "sandbox" &&
       values.provider !== "flutterwave"
@@ -87,7 +96,7 @@ export async function PUT(request: Request) {
         clearSecretKey,
         clearWebhookSecret,
       },
-      guard.admin.id,
+      { admin: guard.admin, request, reason },
     );
     return NextResponse.json({ data: await getPayProviderSettings() });
   } catch (error) {

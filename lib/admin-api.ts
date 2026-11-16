@@ -40,7 +40,13 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store",
   });
   const json = (await res.json().catch(() => ({}))) as T & { message?: string };
-  if (!res.ok) throw new Error(json.message ?? "Request failed");
+  if (!res.ok) {
+    const reauthUrl = (json as { reauthUrl?: unknown }).reauthUrl;
+    if (typeof reauthUrl === "string" && typeof window !== "undefined") {
+      window.location.assign(reauthUrl);
+    }
+    throw new Error(json.message ?? "Request failed");
+  }
   return json;
 }
 
@@ -60,7 +66,6 @@ export const updateRole = (
 export const createAdmin = (input: {
   fullname: string;
   email: string;
-  password: string;
   roleId: number;
 }) => call("/api/admin/users", { method: "POST", body: JSON.stringify(input) });
 export const updateAdmin = (id: number, changes: { roleId?: number; suspended?: boolean }) =>
@@ -79,6 +84,7 @@ export const getPayProviderSettings = () =>
 export const updatePayProviderSettings = (
   input: {
     provider: PayProviderSettings["provider"];
+    reason: string;
     secretKey?: string;
     webhookSecret?: string;
     clearSecretKey?: boolean;

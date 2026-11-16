@@ -1,7 +1,11 @@
 import "server-only";
 
+import type { PoolClient } from "pg";
+
+import { insertAdminAudit } from "@/lib/admin-audit";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { getPool } from "@/lib/db";
+import type { SessionUser } from "@/lib/session";
 
 export type PayProvider = "sandbox" | "flutterwave";
 
@@ -17,10 +21,11 @@ export type PayProviderSettings = {
   flutterwaveWebhookSecretSet: boolean;
 };
 
-async function readStored(): Promise<StoredPayProviderSettings> {
-  const { rows } = await getPool().query<{ value: unknown }>(
-    "select value from settings where key = 'pay'",
-  );
+async function readStored(client?: PoolClient): Promise<StoredPayProviderSettings> {
+  const result = client
+    ? await client.query<{ value: unknown }>("select value from settings where key = 'pay'")
+    : await getPool().query<{ value: unknown }>("select value from settings where key = 'pay'");
+  const { rows } = result;
   const value = rows[0]?.value;
   if (value === undefined || value === null) return {};
   if (typeof value !== "object" || Array.isArray(value)) {
@@ -49,13 +54,17 @@ async function readStored(): Promise<StoredPayProviderSettings> {
   };
 }
 
-export async function getPayProviderSettings(): Promise<PayProviderSettings> {
-  const { provider, flutterwaveSecretKeyEnc, flutterwaveWebhookSecretEnc } = await readStored();
+function publicSettings(stored: StoredPayProviderSettings): PayProviderSettings {
+  const { provider, flutterwaveSecretKeyEnc, flutterwaveWebhookSecretEnc } = stored;
   return {
     provider: provider ?? "sandbox",
     flutterwaveSecretKeySet: Boolean(flutterwaveSecretKeyEnc),
     flutterwaveWebhookSecretSet: Boolean(flutterwaveWebhookSecretEnc),
   };
+}
+
+export async function getPayProviderSettings(): Promise<PayProviderSettings> {
+  return publicSettings(await readStored());
 }
 
 export async function getPayProviderConfig(): Promise<Record<string, string>> {
@@ -79,56 +88,78 @@ export async function savePayProviderSettings(
     clearSecretKey?: boolean;
     clearWebhookSecret?: boolean;
   },
-  adminId: number,
+  audit: { admin: SessionUser; request: Request; reason: string },
 ) {
   const secretKeyEnc = input.secretKey ? encryptSecret(input.secretKey) : null;
   const webhookSecretEnc = input.webhookSecret ? encryptSecret(input.webhookSecret) : null;
   const value = JSON.stringify({ provider: input.provider });
-
-  await getPool().query(
-    `insert into settings (key, value, updated_by, updated_at)
-     values (
-       'pay',
-       $1::jsonb || CASE WHEN $2::text IS NULL THEN '{}'::jsonb
-                         ELSE jsonb_build_object('flutterwaveSecretKeyEnc', $2::text) END ||
-       CASE WHEN $3::text IS NULL THEN '{}'::jsonb
-            ELSE jsonb_build_object('flutterwaveWebhookSecretEnc', $3::text) END,
-       $5,
-       now()
-     )
-     on conflict (key) do update
-       set value = $1::jsonb ||
-           CASE
-             WHEN $4::boolean THEN '{}'::jsonb
-             WHEN $2::text IS NOT NULL
-               THEN jsonb_build_object('flutterwaveSecretKeyEnc', $2::text)
-             WHEN settings.value ? 'flutterwaveSecretKeyEnc'
-               THEN jsonb_build_object(
-                 'flutterwaveSecretKeyEnc',
-                 settings.value->'flutterwaveSecretKeyEnc'
-               )
-             ELSE '{}'::jsonb
-           END ||
-           CASE
-             WHEN $6::boolean THEN '{}'::jsonb
-             WHEN $3::text IS NOT NULL
-               THEN jsonb_build_object('flutterwaveWebhookSecretEnc', $3::text)
-             WHEN settings.value ? 'flutterwaveWebhookSecretEnc'
-               THEN jsonb_build_object(
-                 'flutterwaveWebhookSecretEnc',
-                 settings.value->'flutterwaveWebhookSecretEnc'
-               )
-             ELSE '{}'::jsonb
-           END,
-           updated_by = $5,
-           updated_at = now()`,
-    [
-      value,
-      secretKeyEnc,
-      webhookSecretEnc,
-      input.clearSecretKey === true,
-      adminId,
-      input.clearWebhookSecret === true,
-    ],
-  );
+  const client = await getPool().connect();
+  try {
+    await client.query("BEGIN");
+    const before = publicSettings(await readStored(client));
+    await client.query(
+      `insert into settings (key, value, updated_by, updated_at)
+       values (
+         'pay',
+         $1::jsonb || CASE WHEN $2::text IS NULL THEN '{}'::jsonb
+                           ELSE jsonb_build_object('flutterwaveSecretKeyEnc', $2::text) END ||
+         CASE WHEN $3::text IS NULL THEN '{}'::jsonb
+              ELSE jsonb_build_object('flutterwaveWebhookSecretEnc', $3::text) END,
+         $5,
+         now()
+       )
+       on conflict (key) do update
+         set value = $1::jsonb ||
+             CASE
+               WHEN $4::boolean THEN '{}'::jsonb
+               WHEN $2::text IS NOT NULL
+                 THEN jsonb_build_object('flutterwaveSecretKeyEnc', $2::text)
+               WHEN settings.value ? 'flutterwaveSecretKeyEnc'
+                 THEN jsonb_build_object(
+                   'flutterwaveSecretKeyEnc',
+                   settings.value->'flutterwaveSecretKeyEnc'
+                 )
+               ELSE '{}'::jsonb
+             END ||
+             CASE
+               WHEN $6::boolean THEN '{}'::jsonb
+               WHEN $3::text IS NOT NULL
+                 THEN jsonb_build_object('flutterwaveWebhookSecretEnc', $3::text)
+               WHEN settings.value ? 'flutterwaveWebhookSecretEnc'
+                 THEN jsonb_build_object(
+                   'flutterwaveWebhookSecretEnc',
+                   settings.value->'flutterwaveWebhookSecretEnc'
+                 )
+               ELSE '{}'::jsonb
+             END,
+             updated_by = $5,
+             updated_at = now()`,
+      [
+        value,
+        secretKeyEnc,
+        webhookSecretEnc,
+        input.clearSecretKey === true,
+        audit.admin.id,
+        input.clearWebhookSecret === true,
+      ],
+    );
+    const after = publicSettings(await readStored(client));
+    await insertAdminAudit(client, {
+      ...audit,
+      action: "pay.provider_settings.updated",
+      resource: "pay.provider_settings",
+      before,
+      after,
+    });
+    await client.query("COMMIT");
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error("Could not roll back Pay provider settings:", rollbackError);
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
 }

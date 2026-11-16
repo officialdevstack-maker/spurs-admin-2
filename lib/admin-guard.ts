@@ -4,6 +4,19 @@ import { getAdmin, type SessionUser } from "@/lib/session";
 import { hasPermission, type PermissionName } from "@/lib/permissions";
 import { expectedOrigin } from "@/lib/origin";
 
+const STEP_UP_MAX_AGE_MS = 5 * 60 * 1000;
+
+export function requireRecentAuth(admin: SessionUser, returnTo: string) {
+  const age = Date.now() - admin.authTime.getTime();
+  if (age >= 0 && age <= STEP_UP_MAX_AGE_MS) return null;
+
+  const reauthUrl = `/api/auth/reauth?returnTo=${encodeURIComponent(returnTo)}`;
+  return NextResponse.json(
+    { message: "Confirm your sign-in again to perform this action.", reauthUrl },
+    { status: 403, headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 export async function requireAnyPermission(
   request: Request,
   permissions: readonly PermissionName[],
