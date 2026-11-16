@@ -116,6 +116,27 @@ await fetch(`${process.env.ADMIN_API_URL}/api/v1/email/send`, {
 Successful requests are recorded in `email_log`. The rate limiter is per application instance;
 deployments with multiple instances should use a shared rate-limit store.
 
+## Shared notifications API
+
+`POST /api/v1/notifications`, `GET /api/v1/notifications`,
+`PATCH /api/v1/notifications`, and `DELETE /api/v1/notifications` provide a shared,
+per-API-key in-app inbox and email/SMS delivery for Accounts and Spurs Pay. Keep each API key
+server-side and configure `NOTIFICATIONS_SERVICE_URL` and `NOTIFICATIONS_SERVICE_API_KEY` in
+each calling app. Apply migrations with `npm run db:migrate` before enabling the clients.
+
+The POST body contains `id` (a UUID), `notifiableId`, `type`, `queue`, `delayMs`, and `channels`.
+The channels object may contain `database: { data }`, `mail: { to, subject, text?, html? }`,
+and/or `sms: { to, message }`. A queued mail or SMS is stored in the Postgres outbox and retried
+with exponential backoff; the database inbox write is immediate. Inbox reads, read updates, and
+deletes are scoped to both the API key and `notifiableId`.
+
+Configure an external scheduler to call `GET /api/cron/notifications` at least once per minute
+with `Authorization: Bearer <CRON_SECRET>`. Generate a unique `CRON_SECRET` of at least 32
+characters. Jobs retry up to eight times; delivery is at least once, so downstream email/SMS
+providers may receive a duplicate if a worker fails after delivery but before acknowledging it.
+SMS defaults to a development-only log driver. For real SMS, set `SMS_DRIVER=termii`,
+`TERMII_API_KEY`, and the sender/channel settings in the admin-2 deployment.
+
 ## Getting Started
 
 First, run the development server:

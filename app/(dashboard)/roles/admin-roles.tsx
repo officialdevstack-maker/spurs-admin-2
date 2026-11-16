@@ -96,7 +96,7 @@ export default function AdminRoles() {
           <h2 className="text-2xl font-semibold tracking-tight">Roles</h2>
           <p className="text-sm text-muted-foreground">Control access to dashboard sections.</p>
         </div>
-        <Button render={<Link href="/roles/new" />}>
+        <Button nativeButton={false} render={<Link href="/roles/new" />}>
           <Plus className="mr-2 size-4" /> New role
         </Button>
       </div>

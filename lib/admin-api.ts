@@ -27,6 +27,12 @@ export type EmailSettings = {
   passwordSet: boolean;
 };
 
+export type PayProviderSettings = {
+  provider: "sandbox" | "flutterwave";
+  flutterwaveSecretKeySet: boolean;
+  flutterwaveWebhookSecretSet: boolean;
+};
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -65,6 +71,21 @@ export const updateEmailSettings = (
   input: Omit<EmailSettings, "passwordSet"> & { password?: string; clearPassword?: boolean },
 ) =>
   call<{ data: EmailSettings }>("/api/admin/settings/email", {
+    method: "PUT",
+    body: JSON.stringify(input),
+  }).then((response) => response.data);
+export const getPayProviderSettings = () =>
+  call<{ data: PayProviderSettings }>("/api/admin/pay/providers").then((response) => response.data);
+export const updatePayProviderSettings = (
+  input: {
+    provider: PayProviderSettings["provider"];
+    secretKey?: string;
+    webhookSecret?: string;
+    clearSecretKey?: boolean;
+    clearWebhookSecret?: boolean;
+  },
+) =>
+  call<{ data: PayProviderSettings }>("/api/admin/pay/providers", {
     method: "PUT",
     body: JSON.stringify(input),
   }).then((response) => response.data);

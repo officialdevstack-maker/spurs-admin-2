@@ -53,6 +53,17 @@ export type UserActivity = {
   createdAt: string;
 };
 
+export type ConnectedApp = {
+  id: number;
+  name: string;
+  description: string | null;
+  logoUri: string | null;
+  type: "first_party" | "third_party";
+  permissions: string[];
+  connectedAt: string;
+  lastUsedAt: string | null;
+};
+
 export type ActivityEntry = UserActivity & {
   user: { id: number; fullname: string; email: string };
 };
@@ -61,6 +72,7 @@ export type UserDetail = {
   user: ApiUser;
   devices: UserDevice[];
   activity: UserActivity[];
+  connectedApps: ConnectedApp[];
 };
 
 export function listUsers(params: {

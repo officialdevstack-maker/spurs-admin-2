@@ -1,6 +1,8 @@
 import {
+  Bell,
   CreditCard,
   LayoutDashboard,
+  KeyRound,
   Receipt,
   Settings,
   ShieldCheck,
@@ -37,6 +39,12 @@ export const DASHBOARDS: Dashboard[] = [
     basePath: "/",
     nav: [
       { title: "Dashboard", href: "/", icon: LayoutDashboard },
+      {
+        title: "Notifications",
+        href: "/notifications",
+        icon: Bell,
+        requiredPermission: "settings.manage",
+      },
       {
         title: "Admin users",
         href: "/users",
@@ -108,6 +116,12 @@ export const DASHBOARDS: Dashboard[] = [
         href: "/pay/checkouts",
         icon: CreditCard,
         requiredPermission: "pay.view",
+      },
+      {
+        title: "Providers",
+        href: "/pay/providers",
+        icon: KeyRound,
+        requiredPermission: "pay.providers.manage",
       },
     ],
   },

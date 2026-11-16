@@ -25,6 +25,6 @@ export async function payFetch(path: string) {
   return fetch(target, {
     headers,
     cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(30_000),
   });
 }

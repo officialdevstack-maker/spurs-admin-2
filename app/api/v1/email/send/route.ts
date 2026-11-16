@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { authenticateApiKey } from "@/lib/api-keys";
+import { isApiRateLimited } from "@/lib/api-rate-limit";
 import { getPool } from "@/lib/db";
 import { EmailDisabledError, sendMail } from "@/lib/mailer";
 
@@ -8,25 +9,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_RECIPIENTS = 50;
 const MAX_BODY_CHARS = 500_000;
 const LIMIT_PER_MINUTE = 60;
-
-const requestHits = new Map<number, { count: number; resetAt: number }>();
-
-function isRateLimited(keyId: number) {
-  const now = Date.now();
-  const entry = requestHits.get(keyId);
-  if (!entry || entry.resetAt <= now) {
-    requestHits.set(keyId, { count: 1, resetAt: now + 60_000 });
-    if (requestHits.size > 10_000) {
-      for (const [id, hit] of requestHits) {
-        if (hit.resetAt <= now) requestHits.delete(id);
-      }
-    }
-    return false;
-  }
-
-  entry.count += 1;
-  return entry.count > LIMIT_PER_MINUTE;
-}
 
 async function logEmail(
   keyId: number,
@@ -58,7 +40,7 @@ export async function POST(request: Request) {
   if (!client) {
     return NextResponse.json({ message: "Invalid API key." }, { status: 401 });
   }
-  if (isRateLimited(client.id)) {
+  if (isApiRateLimited(client.id, LIMIT_PER_MINUTE, 60_000, "email")) {
     return NextResponse.json({ message: "Too many requests." }, { status: 429 });
   }
 

@@ -17,6 +17,7 @@ export type OutgoingMail = {
   text?: string;
   html?: string;
   replyTo?: string;
+  priority?: "high" | "normal" | "low";
 };
 
 export async function sendMail(mail: OutgoingMail): Promise<string> {
@@ -41,6 +42,7 @@ export async function sendMail(mail: OutgoingMail): Promise<string> {
       text: mail.text,
       html: mail.html,
       replyTo: mail.replyTo || config.replyTo || undefined,
+      priority: mail.priority,
     });
     return info.messageId;
   } finally {

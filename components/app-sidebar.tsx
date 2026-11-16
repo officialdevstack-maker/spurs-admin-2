@@ -79,7 +79,7 @@ export function AppSidebar() {
 
         <SidebarContent>
           {sections.map((section) => (
-            <SidebarGroup key={section.label ?? "default"}>
+            <SidebarGroup key={section.items[0].href}>
               {section.label && <SidebarGroupLabel>{section.label}</SidebarGroupLabel>}
               <SidebarMenu>
                 {section.items.map((item) => (

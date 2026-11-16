@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   ArrowLeft,
+  AppWindow,
   Calendar,
   KeyRound,
   Loader2,
@@ -144,6 +145,10 @@ export default function UserDetailView() {
   const loading = !detail && !error;
   const user = detail?.user;
   const recentActivity = detail?.activity.slice(0, 8) ?? [];
+  const connectedAppGroups = [
+    { type: "first_party", label: "First-party apps" },
+    { type: "third_party", label: "Third-party apps" },
+  ] as const;
 
   async function run(action: Action) {
     if (!user) return;
@@ -180,7 +185,12 @@ export default function UserDetailView() {
 
   return (
     <div className="space-y-6">
-      <Button variant="ghost" size="sm" render={<Link href="/accounts/list" />}>
+      <Button
+        variant="ghost"
+        size="sm"
+        nativeButton={false}
+        render={<Link href="/accounts/list" />}
+      >
         <ArrowLeft /> Back to accounts
       </Button>
 
@@ -315,6 +325,67 @@ export default function UserDetailView() {
         </Card>
 
         <div className="space-y-6 lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Connected apps</CardTitle>
+              <CardDescription>
+                Apps this account has authorized, grouped by app ownership.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-24 w-full" />
+              ) : detail?.connectedApps.length ? (
+                <div className="space-y-6">
+                  {connectedAppGroups.map((group) => {
+                    const apps = detail.connectedApps.filter((app) => app.type === group.type);
+                    return (
+                      <section key={group.type} className="space-y-3">
+                        <h3 className="text-sm font-medium">{group.label}</h3>
+                        {apps.length ? (
+                          <ul className="divide-y">
+                            {apps.map((app) => (
+                              <li key={app.id} className="flex items-start gap-3 py-3 first:pt-0">
+                                <AppWindow className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <p className="text-sm font-medium">{app.name}</p>
+                                  {app.description && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {app.description}
+                                    </p>
+                                  )}
+                                  {app.permissions.length > 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                      Access: {app.permissions.join(" · ")}
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground">
+                                    Connected {formatDateTime(app.connectedAt)}
+                                    {" · "}
+                                    Last used{" "}
+                                    {app.lastUsedAt
+                                      ? formatRelative(app.lastUsedAt)
+                                      : "Not recorded"}
+                                  </p>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No {group.type === "first_party" ? "first-party" : "third-party"} apps connected.
+                          </p>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No connected apps.</p>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Devices</CardTitle>

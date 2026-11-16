@@ -21,7 +21,7 @@ export default function NewRolePage() {
 
   return (
     <div className="w-full space-y-6">
-      <Button variant="ghost" size="sm" render={<Link href="/roles" />}>
+      <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/roles" />}>
         <ArrowLeft /> Back to roles
       </Button>
 
