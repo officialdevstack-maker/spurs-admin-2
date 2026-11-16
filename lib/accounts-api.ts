@@ -68,11 +68,26 @@ export type ActivityEntry = UserActivity & {
   user: { id: number; fullname: string; email: string };
 };
 
+export type UserKyc = {
+  status: "pending" | "verified" | "rejected";
+  bvnMasked: string;
+  fullName: string;
+  dateOfBirth: string;
+  phone: string;
+  rejectionReason: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  duplicateCount: number;
+};
+
 export type UserDetail = {
   user: ApiUser;
+  kyc: UserKyc | null;
   devices: UserDevice[];
   activity: UserActivity[];
   connectedApps: ConnectedApp[];
+  recentLogins: UserActivity[];
 };
 
 export function listUsers(params: {
@@ -113,6 +128,15 @@ export const suspendUser = (id: number) => post(id, "suspend");
 export const unsuspendUser = (id: number) => post(id, "unsuspend");
 export const revokeUserSessions = (id: number) => post(id, "revoke-sessions");
 export const verifyUserEmail = (id: number) => post(id, "verify-email");
+export const reviewUserKyc = (
+  id: number,
+  status: "verified" | "rejected",
+  reason?: string,
+) =>
+  api<{ status: UserKyc["status"] }>(`/users/${id}/kyc`, {
+    method: "POST",
+    body: { status, ...(reason ? { reason } : {}) },
+  });
 
 export type AccountSettings = {
   registration_enabled: boolean;

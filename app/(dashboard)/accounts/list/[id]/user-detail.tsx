@@ -38,6 +38,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getUser,
+  reviewUserKyc,
   revokeUserSessions,
   suspendUser,
   unsuspendUser,
@@ -48,6 +49,7 @@ import { formatDate, formatDateTime, formatRelative } from "@/lib/format";
 import { hasPermission, type PermissionName } from "@/lib/permissions";
 
 type Action = "verify" | "revoke" | "suspend" | "unsuspend";
+type BusyAction = Action | "kyc-approve" | "kyc-reject";
 
 const errorMessage = (cause: unknown) =>
   cause instanceof Error ? cause.message : "Something went wrong.";
@@ -120,8 +122,9 @@ export default function UserDetailView() {
   const [result, setResult] = React.useState<{ id: string; detail: UserDetail } | null>(null);
   const [failure, setFailure] = React.useState<{ id: string; message: string } | null>(null);
   const [reload, setReload] = React.useState(0);
-  const [busy, setBusy] = React.useState<Action | null>(null);
+  const [busy, setBusy] = React.useState<BusyAction | null>(null);
   const [confirm, setConfirm] = React.useState<"suspend" | "revoke" | null>(null);
+  const [kycRejectionReason, setKycRejectionReason] = React.useState("");
 
   React.useEffect(() => {
     let active = true;
@@ -167,6 +170,28 @@ export default function UserDetailView() {
         }[action],
       );
       setConfirm(null);
+      setReload((value) => value + 1);
+    } catch (cause) {
+      toast.error(errorMessage(cause));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function reviewKyc(status: "verified" | "rejected") {
+    if (!user || !detail?.kyc) return;
+    const reason = kycRejectionReason.trim();
+    if (status === "rejected" && !reason) {
+      toast.error("Add a rejection reason.");
+      return;
+    }
+
+    const action = status === "verified" ? "kyc-approve" : "kyc-reject";
+    setBusy(action);
+    try {
+      await reviewUserKyc(user.id, status, status === "rejected" ? reason : undefined);
+      toast.success(status === "verified" ? "BVN verified." : "BVN rejected.");
+      setKycRejectionReason("");
       setReload((value) => value + 1);
     } catch (cause) {
       toast.error(errorMessage(cause));
@@ -327,6 +352,82 @@ export default function UserDetailView() {
         <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
+              <CardTitle>BVN verification</CardTitle>
+              <CardDescription>
+                Review the user-submitted details before approving this BVN.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-24 w-full" />
+              ) : detail?.kyc ? (
+                <div className="space-y-4">
+                  <dl className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Status" value={detail.kyc.status} />
+                    <Field label="BVN" value={detail.kyc.bvnMasked} />
+                    <Field label="Full name" value={detail.kyc.fullName} />
+                    <Field label="Date of birth" value={detail.kyc.dateOfBirth} />
+                    <Field label="Phone" value={detail.kyc.phone} />
+                    <Field label="Submitted" value={formatDateTime(detail.kyc.submittedAt)} />
+                    <Field label="Duplicate submissions" value={detail.kyc.duplicateCount} />
+                    {detail.kyc.reviewedAt && (
+                      <Field label="Reviewed" value={formatDateTime(detail.kyc.reviewedAt)} />
+                    )}
+                  </dl>
+                  {detail.kyc.rejectionReason && (
+                    <p className="text-sm text-destructive">
+                      Rejection reason: {detail.kyc.rejectionReason}
+                    </p>
+                  )}
+                  {detail.kyc.status === "pending" && can("accounts.verify") && (
+                    <div className="space-y-3 border-t pt-4">
+                      <label className="block space-y-1 text-sm">
+                        <span className="font-medium">Rejection reason</span>
+                        <textarea
+                          className="w-full rounded-md border bg-background px-3 py-2"
+                          maxLength={500}
+                          rows={2}
+                          value={kycRejectionReason}
+                          onChange={(event) => setKycRejectionReason(event.target.value)}
+                          placeholder="Required only when rejecting"
+                        />
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          disabled={busy !== null}
+                          onClick={() => void reviewKyc("verified")}
+                        >
+                          {busy === "kyc-approve" ? (
+                            <Loader2 className="animate-spin" />
+                          ) : (
+                            <ShieldCheck />
+                          )}
+                          Approve BVN
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          disabled={busy !== null}
+                          onClick={() => void reviewKyc("rejected")}
+                        >
+                          {busy === "kyc-reject" ? (
+                            <Loader2 className="animate-spin" />
+                          ) : (
+                            <ShieldOff />
+                          )}
+                          Reject BVN
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No BVN has been submitted.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Connected apps</CardTitle>
               <CardDescription>
                 Apps this account has authorized, grouped by app ownership.
@@ -389,55 +490,99 @@ export default function UserDetailView() {
           <Card>
             <CardHeader>
               <CardTitle>Devices</CardTitle>
-              <CardDescription>Active sign-ins for this account.</CardDescription>
+              <CardDescription>
+                Active sessions and recent sign-in devices for this account.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
                 <Skeleton className="h-20 w-full" />
-              ) : detail?.devices.length ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[520px] text-left text-sm">
-                    <thead className="text-xs text-muted-foreground">
-                      <tr>
-                        <th className="py-2 pr-4 font-medium">Device</th>
-                        <th className="py-2 pr-4 font-medium">IP address</th>
-                        <th className="py-2 pr-4 font-medium">Signed in</th>
-                        <th className="py-2 font-medium">Last used</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {detail.devices.map((device) => (
-                        <tr key={device.id}>
-                          <td className="py-2 pr-4">
-                            <span className="flex items-center gap-2">
-                              <Monitor className="size-4 text-muted-foreground" />
-                              {device.deviceName ?? "Unknown device"}
-                              {device.current && (
-                                <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
-                                  Current
-                                </span>
-                              )}
-                            </span>
-                          </td>
-                          <td className="py-2 pr-4 text-muted-foreground">
-                            {device.ipAddress ?? "—"}
-                          </td>
-                          <td className="py-2 pr-4 text-muted-foreground">
-                            {formatDateTime(device.signedInAt)}
-                          </td>
-                          <td
-                            className="py-2 text-muted-foreground"
-                            title={formatDateTime(device.lastUsedAt)}
+              ) : detail ? (
+                <div className="space-y-6">
+                  <section className="space-y-2">
+                    <h3 className="text-sm font-medium">Active sessions</h3>
+                    {detail.devices.length ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[520px] text-left text-sm">
+                          <thead className="text-xs text-muted-foreground">
+                            <tr>
+                              <th className="py-2 pr-4 font-medium">Device</th>
+                              <th className="py-2 pr-4 font-medium">IP address</th>
+                              <th className="py-2 pr-4 font-medium">Signed in</th>
+                              <th className="py-2 font-medium">Last used</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {detail.devices.map((device) => (
+                              <tr key={device.id}>
+                                <td className="py-2 pr-4">
+                                  <span className="flex items-center gap-2">
+                                    <Monitor className="size-4 text-muted-foreground" />
+                                    {device.deviceName ?? "Unknown device"}
+                                    {device.current && (
+                                      <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-accent-foreground">
+                                        Current
+                                      </span>
+                                    )}
+                                  </span>
+                                </td>
+                                <td className="py-2 pr-4 text-muted-foreground">
+                                  {device.ipAddress ?? "—"}
+                                </td>
+                                <td className="py-2 pr-4 text-muted-foreground">
+                                  {formatDateTime(device.signedInAt)}
+                                </td>
+                                <td
+                                  className="py-2 text-muted-foreground"
+                                  title={formatDateTime(device.lastUsedAt)}
+                                >
+                                  {formatRelative(device.lastUsedAt)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No active sessions.</p>
+                    )}
+                  </section>
+
+                  <section className="space-y-2">
+                    <h3 className="text-sm font-medium">Recent sign-ins</h3>
+                    {detail?.recentLogins?.length ? (
+                      <ul className="divide-y">
+                        {detail.recentLogins.map((login) => (
+                          <li
+                            key={login.id}
+                            className="flex flex-wrap items-start justify-between gap-2 py-2 first:pt-0"
                           >
-                            {formatRelative(device.lastUsedAt)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            <div>
+                              <p className="text-sm font-medium">
+                                {login.deviceName ?? "Unknown device"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {login.ipAddress ?? "IP not recorded"}
+                              </p>
+                            </div>
+                            <span
+                              className="text-xs text-muted-foreground"
+                              title={formatDateTime(login.createdAt)}
+                            >
+                              {formatRelative(login.createdAt)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No recent sign-ins recorded.
+                      </p>
+                    )}
+                  </section>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">No active devices.</p>
+                <p className="text-sm text-muted-foreground">Account details unavailable.</p>
               )}
             </CardContent>
           </Card>

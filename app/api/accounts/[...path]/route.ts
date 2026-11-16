@@ -17,6 +17,7 @@ const ALLOWED: Rule[] = [
   { method: "POST", pattern: /^users$/ },
   { method: "GET", pattern: /^activity$/ },
   { method: "GET", pattern: /^users\/\d+$/ },
+  { method: "POST", pattern: /^users\/\d+\/kyc$/ },
   {
     method: "POST",
     pattern: /^users\/\d+\/(suspend|unsuspend|revoke-sessions|verify-email)$/,
@@ -34,6 +35,9 @@ function permissionFor(subpath: string, method: string): string | null {
     return "accounts.suspend";
   }
   if (method === "POST" && /^users\/\d+\/verify-email$/.test(subpath)) {
+    return "accounts.verify";
+  }
+  if (method === "POST" && /^users\/\d+\/kyc$/.test(subpath)) {
     return "accounts.verify";
   }
   if (method === "POST" && /^users\/\d+\/revoke-sessions$/.test(subpath)) {
@@ -94,7 +98,8 @@ async function handler(
       ? `/api/internal/${subpath}`
       : `/api/internal/admin/${subpath}`;
     const hasBody =
-      request.method === "POST" && (subpath === "settings" || subpath === "users");
+      request.method === "POST" &&
+      (subpath === "settings" || subpath === "users" || /^users\/\d+\/kyc$/.test(subpath));
     const response = await accountsFetch(
       `${target}${request.nextUrl.search}`,
       {
