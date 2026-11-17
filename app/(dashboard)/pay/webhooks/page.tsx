@@ -7,19 +7,25 @@ import { formatDateTime } from "@/lib/format";
 
 export default function PayWebhooksPage() {
   const [status, setStatus] = React.useState("");
-  const [rows, setRows] = React.useState<PayWebhookEvent[] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [result, setResult] = React.useState<{
+    status: string;
+    rows?: PayWebhookEvent[];
+    error?: string;
+  } | null>(null);
 
   React.useEffect(() => {
     let active = true;
-    setRows(null);
-    setError(null);
     listPayWebhooks({ status: status || undefined })
-      .then((result) => {
-        if (active) setRows(result.data);
+      .then((response) => {
+        if (active) setResult({ status, rows: response.data });
       })
       .catch((cause: unknown) => {
-        if (active) setError(cause instanceof Error ? cause.message : "Something went wrong.");
+        if (active) {
+          setResult({
+            status,
+            error: cause instanceof Error ? cause.message : "Something went wrong.",
+          });
+        }
       });
     return () => {
       active = false;
@@ -43,7 +49,9 @@ export default function PayWebhooksPage() {
         <option value="processed">Processed</option>
         <option value="failed">Failed</option>
       </select>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {result?.status === status && result.error && (
+        <p role="alert" className="text-sm text-destructive">{result.error}</p>
+      )}
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full min-w-[720px] text-left text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
@@ -57,11 +65,11 @@ export default function PayWebhooksPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {rows === null && !error ? (
+            {result?.status !== status ? (
               <tr><td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>Loading events…</td></tr>
-            ) : error ? (
+            ) : result.error ? (
               <tr><td className="px-4 py-8 text-center text-destructive" colSpan={6}>Webhook events could not be loaded.</td></tr>
-            ) : rows?.length ? rows.map((event) => (
+            ) : result.rows?.length ? result.rows.map((event) => (
               <tr key={event.id}>
                 <td className="px-4 py-3">
                   <p className="font-medium">{event.type}</p>

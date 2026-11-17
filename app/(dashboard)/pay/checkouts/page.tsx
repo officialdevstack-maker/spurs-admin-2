@@ -31,7 +31,10 @@ export default function PayCheckoutsPage() {
   } | null>(null);
 
   const cursor = cursorStack[cursorStack.length - 1] ?? null;
-  const query = { ...filters, ...(cursor ? { cursor } : {}) };
+  const query = React.useMemo(
+    () => ({ ...filters, ...(cursor ? { cursor } : {}) }),
+    [filters, cursor],
+  );
   const key = JSON.stringify(query);
 
   React.useEffect(() => {
@@ -51,7 +54,7 @@ export default function PayCheckoutsPage() {
     return () => {
       active = false;
     };
-  }, [key]);
+  }, [key, query]);
 
   const current = result?.key === key ? result : null;
 

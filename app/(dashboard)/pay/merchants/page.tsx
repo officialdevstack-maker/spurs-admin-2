@@ -15,23 +15,33 @@ function formatAmount(amount: string) {
 export default function PayMerchantsPage() {
   const [status, setStatus] = React.useState("");
   const [search, setSearch] = React.useState("");
-  const [rows, setRows] = React.useState<PayMerchant[] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [result, setResult] = React.useState<{
+    key: string;
+    rows?: PayMerchant[];
+    error?: string;
+  } | null>(null);
+  const key = `${status}\u0000${search}`;
 
   React.useEffect(() => {
     let active = true;
-    setRows(null);
     listPayMerchants({ status: status || undefined, search: search.trim() || undefined })
-      .then((result) => {
-        if (active) setRows(result.data);
+      .then((response) => {
+        if (active) setResult({ key, rows: response.data });
       })
       .catch((cause: unknown) => {
-        if (active) setError(cause instanceof Error ? cause.message : "Something went wrong.");
+        if (active) {
+          setResult({
+            key,
+            error: cause instanceof Error ? cause.message : "Something went wrong.",
+          });
+        }
       });
     return () => {
       active = false;
     };
-  }, [status, search]);
+  }, [status, search, key]);
+
+  const current = result?.key === key ? result : null;
 
   return (
     <div className="space-y-6">
@@ -58,7 +68,7 @@ export default function PayMerchantsPage() {
           <option value="suspended">Suspended</option>
         </select>
       </div>
-      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {current?.error && <p role="alert" className="text-sm text-destructive">{current.error}</p>}
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full min-w-[700px] text-left text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
@@ -72,11 +82,11 @@ export default function PayMerchantsPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {rows === null && !error ? (
+            {!current ? (
               <tr><td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>Loading merchants…</td></tr>
-            ) : error ? (
+            ) : current.error ? (
               <tr><td className="px-4 py-8 text-center text-destructive" colSpan={6}>Merchants could not be loaded.</td></tr>
-            ) : rows?.length ? rows.map((merchant) => (
+            ) : current.rows?.length ? current.rows.map((merchant) => (
               <tr key={merchant.id}>
                 <td className="px-4 py-3 font-medium">{merchant.name}</td>
                 <td className="px-4 py-3 capitalize">{merchant.status}</td>
