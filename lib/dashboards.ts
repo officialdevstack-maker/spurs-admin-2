@@ -6,8 +6,10 @@ import {
   Receipt,
   Settings,
   ShieldCheck,
+  Store,
   Users,
   Wallet,
+  Webhook,
   type LucideIcon,
 } from "lucide-react";
 
@@ -115,6 +117,24 @@ export const DASHBOARDS: Dashboard[] = [
         title: "Checkouts",
         href: "/pay/checkouts",
         icon: CreditCard,
+        requiredPermission: "pay.view",
+      },
+      {
+        title: "Merchants",
+        href: "/pay/merchants",
+        icon: Store,
+        requiredPermission: "pay.view",
+      },
+      {
+        title: "Webhook events",
+        href: "/pay/webhooks",
+        icon: Webhook,
+        requiredPermission: "pay.view",
+      },
+      {
+        title: "Suspense",
+        href: "/pay/suspense",
+        icon: Receipt,
         requiredPermission: "pay.view",
       },
       {

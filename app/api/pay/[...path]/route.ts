@@ -4,7 +4,7 @@ import { canAccessDashboard, hasPermission } from "@/lib/permissions";
 import { getAdmin, type SessionUser } from "@/lib/session";
 import { payFetch } from "@/lib/pay-server";
 
-const ALLOWED = new Set(["stats", "checkouts"]);
+const ALLOWED = new Set(["stats", "checkouts", "merchants", "webhooks", "suspense"]);
 
 async function handler(
   request: NextRequest,
@@ -27,7 +27,9 @@ async function handler(
 
   const { path } = await context.params;
   const subpath = path.join("/");
-  if (request.method !== "GET" || !ALLOWED.has(subpath)) {
+  const allowed =
+    ALLOWED.has(subpath) || /^checkouts\/SPY_[A-Z0-9]{16}$/.test(subpath);
+  if (request.method !== "GET" || !allowed) {
     return NextResponse.json(
       { message: `Panel proxy: ${request.method} /${subpath} is not allowed.` },
       { status: 404 },

@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import type { PoolClient } from "pg";
 
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     const fullname = typeof body?.fullname === "string" ? body.fullname.trim() : "";
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body?.password === "string" ? body.password : "";
     const roleId = Number(body?.roleId);
 
     if (!fullname || fullname.length > 120) {
@@ -41,10 +43,17 @@ export async function POST(request: Request) {
     if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ message: "Enter a valid email." }, { status: 422 });
     }
+    if (password.length < 12 || Buffer.byteLength(password, "utf8") > 72) {
+      return NextResponse.json(
+        { message: "Password must be 12+ characters and at most 72 bytes." },
+        { status: 422 },
+      );
+    }
     if (!Number.isInteger(roleId) || roleId < 1) {
       return NextResponse.json({ message: "Choose a role." }, { status: 422 });
     }
 
+    const hash = await bcrypt.hash(password, 12);
     client = await getPool().connect();
     await client.query("BEGIN");
     transactionStarted = true;
@@ -72,11 +81,11 @@ export async function POST(request: Request) {
     }
 
     const { rows } = await client.query(
-      `insert into users (fullname, email, is_admin, role_id)
-       values ($1, $2, true, $3)
+      `insert into users (fullname, email, password, is_admin, role_id)
+       values ($1, $2, $3, true, $4)
        on conflict do nothing
        returning id`,
-      [fullname, email, roleId],
+      [fullname, email, hash, roleId],
     );
     if (!rows.length) {
       await client.query("ROLLBACK");

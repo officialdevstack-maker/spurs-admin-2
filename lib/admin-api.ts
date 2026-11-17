@@ -66,6 +66,7 @@ export const updateRole = (
 export const createAdmin = (input: {
   fullname: string;
   email: string;
+  password: string;
   roleId: number;
 }) => call("/api/admin/users", { method: "POST", body: JSON.stringify(input) });
 export const updateAdmin = (id: number, changes: { roleId?: number; suspended?: boolean }) =>

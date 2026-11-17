@@ -37,7 +37,7 @@ export async function createPayAdminAssertion(admin: SessionUser, request: Reque
     .setProtectedHeader({ alg: "RS256", typ: "JWT" })
     .setIssuer("admin-2")
     .setAudience("spurs-pay")
-    .setSubject(admin.accountsSub)
+    .setSubject(String(admin.id))
     .setIssuedAt(now)
     .setExpirationTime(now + 60)
     .sign(await getSigningKey());

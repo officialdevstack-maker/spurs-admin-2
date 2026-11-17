@@ -14,7 +14,7 @@ APP_ORIGIN=https://admin.example.com
 ACCOUNTS_API_URL=https://api.example.com
 ACCOUNTS_INTERNAL_SECRET=same-value-as-INTERNAL_SHARED_SECRET-on-the-accounts-backend
 PAY_API_URL=https://pay.example.com
-PAY_INTERNAL_SECRET=same-value-as-INTERNAL_SHARED_SECRET-on-spurs-pay
+PAY_ADMIN_IDENTITY_PRIVATE_KEY=replace-with-RSA-PKCS8-private-key-escaped-newlines
 ```
 
 For HTTP testing with a production build, set `SESSION_COOKIE_INSECURE=true` in `.env.local`.
@@ -39,13 +39,23 @@ requests. If that URL points back to the admin app, configure the accounts backe
 different port and set `ACCOUNTS_API_URL` to that origin (for example,
 `http://localhost:4000`); restart both apps after changing their port configuration.
 
-`PAY_API_URL` must be the Spurs Pay origin (without an `/api` path), and
-`PAY_INTERNAL_SECRET` must match Spurs Pay's `INTERNAL_SHARED_SECRET`. Admin 2's
-Spurs Pay dashboard uses a server-side proxy for read-only checkout stats and session
-listing; the secret is never sent to the browser. Assign the `pay` dashboard and
-`pay.view` permission to any admin role that should use it.
+`PAY_API_URL` must be the Spurs Pay origin (without an `/api` path). Admin 2 signs
+short-lived per-admin assertions with `PAY_ADMIN_IDENTITY_PRIVATE_KEY`; Pay verifies
+them with the matching public key. Generate an RSA key pair outside the repository:
 
-The admin panel authenticates against the PostgreSQL `users` table. To apply pending migrations from the
+```sh
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out admin-private.pem
+openssl pkey -in admin-private.pem -pubout -out admin-public.pem
+```
+
+Keep the private key only in Admin 2's server environment and configure the public key
+as `ADMIN_IDENTITY_PUBLIC_KEY` in Pay. Do not send either key to browser code or commit
+them. Admin 2 continues to use its normal per-admin email/password sign-in. Pay provider
+changes require a password re-check if the last sign-in was more than five minutes ago,
+and record a reason plus redacted before/after values in the audit log.
+
+The admin panel uses its normal per-admin email/password sign-in against the PostgreSQL `users`
+table. Pay receives short-lived signed identities for that specific Admin 2 user. To apply pending migrations from the
 `migrations` directory to the configured database, run:
 
 ```sh
@@ -60,9 +70,8 @@ schema instead.
 The migrations create an empty table with `id`, `fullname`, `email`, `password`, `is_admin`,
 `suspended_at`, `admin_suspended_at`, and `updated_at` columns. `suspended_at` applies to the
 main account; `admin_suspended_at` only blocks access to this panel. The migrations do not create an
-admin account. To create the initial
-admin, add `PANEL_ADMIN_FULLNAME`, `PANEL_ADMIN_EMAIL`, and `PANEL_ADMIN_PASSWORD` to your ignored
-`.env.local` file, then run:
+admin account. To create the initial admin, add `PANEL_ADMIN_FULLNAME`, `PANEL_ADMIN_EMAIL`, and
+`PANEL_ADMIN_PASSWORD` to your ignored `.env.local` file, then run:
 
 ```sh
 npm run db:create-admin

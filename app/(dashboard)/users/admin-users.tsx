@@ -228,6 +228,7 @@ function NewAdminDialog({
   const [form, setForm] = React.useState({
     fullname: "",
     email: "",
+    password: "",
     roleId: roles[0]?.id ? String(roles[0].id) : "",
   });
   const [saving, setSaving] = React.useState(false);
@@ -259,9 +260,7 @@ function NewAdminDialog({
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
             <DialogTitle>New admin</DialogTitle>
-            <DialogDescription>
-              Add an existing verified Spurs Accounts email and assign its Admin 2 access.
-            </DialogDescription>
+            <DialogDescription>They can sign in to the panel with these credentials.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="a-name">Full name</Label>
@@ -270,6 +269,19 @@ function NewAdminDialog({
           <div className="space-y-2">
             <Label htmlFor="a-email">Email</Label>
             <Input id="a-email" type="email" required value={form.email} onChange={set("email")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="a-pass">Password</Label>
+            <Input
+              id="a-pass"
+              type="password"
+              required
+              minLength={12}
+              autoComplete="new-password"
+              value={form.password}
+              onChange={set("password")}
+            />
+            <p className="text-xs text-muted-foreground">At least 12 characters.</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="a-role">Role</Label>

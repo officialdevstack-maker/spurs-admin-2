@@ -96,6 +96,7 @@ export async function savePayProviderSettings(
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
+    await client.query("select pg_advisory_xact_lock(719402, 3)");
     const before = publicSettings(await readStored(client));
     await client.query(
       `insert into settings (key, value, updated_by, updated_at)

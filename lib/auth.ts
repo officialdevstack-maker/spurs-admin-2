@@ -37,6 +37,22 @@ export async function getSessionUser(): Promise<AdminUser | null> {
   return body.user ?? null;
 }
 
+export async function loginRequest(email: string, password: string): Promise<AdminUser> {
+  const { user } = await request<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  if (!user) throw new Error("Invalid authentication response");
+  return user;
+}
+
 export async function logoutRequest(): Promise<void> {
   await request("/api/auth/logout", { method: "POST" });
+}
+
+export async function changePasswordRequest(current: string, next: string): Promise<void> {
+  await request("/api/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ current, next }),
+  });
 }

@@ -9,21 +9,21 @@ Implement these phases in order. Later phases depend on the foundations in earli
 
 ## Phase A: Foundations (blocks every write action)
 
-- [ ] Per-admin identity (sign in through Spurs Accounts) instead of the single `x-internal-secret`
-- [ ] Roles and permissions: viewer, operator, approver, super admin
-- [ ] Audit log for every admin action: actor, IP, time, before/after values, reason
-- [ ] Step-up re-authentication (`max_age=300`) for sensitive actions
+- [x] Per-admin identity from Admin 2's normal sign-in, signed to Pay instead of relying on the single `x-internal-secret`
+- [x] Roles and permissions: viewer, operator, approver, super admin
+- [ ] Audit log for every admin action: actor, IP, time, before/after values, reason (Pay provider changes are audited; wire each later write action)
+- [x] Step-up re-authentication (password re-check within 300 seconds) for sensitive actions
 - [ ] Pay: internal write API that requires an admin identity and the audit fields, with `internal_admin` rate limiting
-- [ ] Pay: stop accepting writes on the shared secret alone
+- [x] Pay: stop accepting internal admin requests on the shared secret alone
 
 ## Phase B: Read-only operations views
 
-- [ ] Checkout list with filters (status, merchant, date, reference) and cursor pagination
-- [ ] Checkout detail: session, attempts, method, ledger transaction, timeline
-- [ ] Merchant list with volume and status
-- [ ] Webhook events: status, attempts, last error (`webhook_events`)
-- [ ] Suspense account entries
-- [ ] Redaction check: never show PAN, CVV, PINs, merchant secrets or full account numbers
+- [x] Checkout list with filters (status, merchant, date, reference) and cursor pagination
+- [x] Checkout detail: session, attempts, method, ledger transaction, timeline
+- [x] Merchant list with volume and status
+- [x] Webhook events: status, attempts, last error (`webhook_events`)
+- [x] Suspense account entries
+- [x] Redaction check: never show PAN, CVV, PINs, merchant secrets or full account numbers
 
 ## Phase C: Merchant management
 

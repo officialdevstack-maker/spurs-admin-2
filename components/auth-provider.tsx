@@ -3,14 +3,18 @@
 import * as React from "react";
 import {
   type AdminUser,
+  changePasswordRequest,
   getSessionUser,
+  loginRequest,
   logoutRequest,
 } from "@/lib/auth";
 
 type AuthContextValue = {
   user: AdminUser | null;
   ready: boolean;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  changePassword: (current: string, next: string) => Promise<void>;
 };
 
 const AuthContext = React.createContext<AuthContextValue | null>(null);
@@ -41,10 +45,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       ready,
+      login: async (email, password) => {
+        await loginRequest(email, password);
+        const confirmedUser = await getSessionUser();
+        if (!confirmedUser) {
+          throw new Error(
+            "Signed in, but the session cookie was not saved. If you are running over HTTP, the secure cookie flag may be blocking it.",
+          );
+        }
+        setUser(confirmedUser);
+      },
       logout: async () => {
         await logoutRequest();
         setUser(null);
       },
+      changePassword: changePasswordRequest,
     }),
     [user, ready],
   );

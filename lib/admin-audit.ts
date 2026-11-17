@@ -28,12 +28,12 @@ export async function insertAdminAudit(
 ) {
   await client.query(
     `insert into admin_audit_log
-       (actor_user_id, actor_accounts_sub, actor_email, action, resource,
+       (actor_user_id, actor_subject, actor_email, action, resource,
         ip_address, before_values, after_values, reason)
      values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9)`,
     [
       input.admin.id,
-      input.admin.accountsSub,
+      String(input.admin.id),
       input.admin.email,
       input.action,
       input.resource,
