@@ -29,10 +29,10 @@ Implement these phases in order. Later phases depend on the foundations in earli
 
 - [x] Create merchant: name, `client_id`, return URL (must be HTTPS in production), ledger account
 - [x] Approve, suspend and reactivate (`merchants.status`)
-- [ ] Credential issuance with one-time secret display, rotation, revocation and last-used time
-- [ ] Webhook config per merchant: URL, signing secret, retry policy, delivery log, manual redeliver
-- [ ] Merchant onboarding checklist and due-diligence notes
-- [ ] Pay: signed, retryable merchant webhook delivery (open decision in the spec)
+- [x] Credential issuance with one-time secret display, rotation, revocation and last-used time
+- [x] Webhook config per merchant: URL, signing secret, retry policy, delivery log, manual redeliver
+- [x] Merchant onboarding checklist and due-diligence notes
+- [x] Pay: signed, retryable merchant webhook delivery
 
 ## Phase D: Service clients and access
 

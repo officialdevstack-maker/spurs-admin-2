@@ -28,7 +28,9 @@ async function handler(
   const { path } = await context.params;
   const subpath = path.join("/");
   const allowed =
-    ALLOWED.has(subpath) || /^checkouts\/SPY_[A-Z0-9]{16}$/.test(subpath);
+    ALLOWED.has(subpath) ||
+    /^checkouts\/SPY_[A-Z0-9]{16}$/.test(subpath) ||
+    /^merchants\/[0-9a-f-]{36}(\/(webhooks|onboarding))?$/i.test(subpath);
   if (request.method !== "GET" || !allowed) {
     return NextResponse.json(
       { message: `Panel proxy: ${request.method} /${subpath} is not allowed.` },

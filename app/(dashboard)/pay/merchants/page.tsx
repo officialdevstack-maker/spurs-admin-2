@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Loader2, Plus } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
@@ -43,23 +44,28 @@ export default function PayMerchantsPage() {
 
   const [status, setStatus] = React.useState("");
   const [search, setSearch] = React.useState("");
-  const [rows, setRows] = React.useState<PayMerchant[] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const [result, setResult] = React.useState<{
+    key: string;
+    rows?: PayMerchant[];
+    error?: string;
+  } | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [open, setOpen] = React.useState(false);
   const [reload, setReload] = React.useState(0);
+  const key = `${status}\u0000${search}\u0000${reload}`;
 
   React.useEffect(() => {
     let active = true;
-    setRows(null);
-    setError(null);
     listPayMerchants({ status: status || undefined, search: search.trim() || undefined })
-      .then((result) => active && setRows(result.data))
-      .catch((cause: unknown) => active && setError(msg(cause)));
+      .then((response) => active && setResult({ key, rows: response.data }))
+      .catch((cause: unknown) => active && setResult({ key, error: msg(cause) }));
     return () => {
       active = false;
     };
-  }, [status, search, reload]);
+  }, [status, search, reload, key]);
+
+  const current = result?.key === key ? result : null;
+  const error = current?.error;
 
   async function act(merchant: PayMerchant, action: "approve" | "suspend" | "reactivate") {
     const reason = window.prompt(`Reason to ${action} ${merchant.name}:`)?.trim();
@@ -126,15 +132,17 @@ export default function PayMerchantsPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {rows === null && !error ? (
+            {!current && !error ? (
               <tr><td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>Loading merchants…</td></tr>
             ) : error ? (
               <tr><td className="px-4 py-8 text-center text-destructive" colSpan={6}>Merchants could not be loaded.</td></tr>
-            ) : rows?.length ? (
-              rows.map((merchant) => (
+            ) : current?.rows?.length ? (
+              current.rows.map((merchant) => (
                 <tr key={merchant.id}>
                   <td className="px-4 py-3">
-                    <p className="font-medium">{merchant.name}</p>
+                    <Link className="font-medium hover:underline" href={`/pay/merchants/${merchant.id}`}>
+                      {merchant.name}
+                    </Link>
                     <p className="text-xs text-muted-foreground">{merchant.clientId}</p>
                   </td>
                   <td className="px-4 py-3">
@@ -204,20 +212,22 @@ function NewMerchantDialog({
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
 }) {
-  const [form, setForm] = React.useState({ name: "", clientId: "", returnUrl: "", reason: "" });
+  const [form, setForm] = React.useState({ name: "", returnUrl: "", reason: "" });
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const set = (key: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [key]: event.target.value });
+  const [issued, setIssued] = React.useState<{ clientId: string; clientSecret: string } | null>(null);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      await createPayMerchant(form);
+      const result = await createPayMerchant(form);
+      if (!result.credentials) throw new Error("Merchant was created without credentials. Contact an administrator.");
+      setIssued(result.credentials);
       toast.success(`${form.name} was created and is waiting for approval.`);
-      onOpenChange(false);
       onCreated();
     } catch (cause) {
       setError(msg(cause));
@@ -231,18 +241,39 @@ function NewMerchantDialog({
       <DialogContent>
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>New merchant</DialogTitle>
+            <DialogTitle>{issued ? "Save merchant credentials" : "New merchant"}</DialogTitle>
             <DialogDescription>
-              The merchant stays pending until a different admin approves it.
+              {issued
+                ? "The client secret is shown once. Copy and securely share it with the merchant now."
+                : "Credentials are provisioned automatically. The merchant stays pending until a different admin approves it."}
             </DialogDescription>
           </DialogHeader>
+          {issued ? (
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="space-y-2">
+                <Label htmlFor="issued-client-id">Client ID</Label>
+                <Input id="issued-client-id" readOnly value={issued.clientId} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="issued-client-secret">Client secret (one-time)</Label>
+                <Input id="issued-client-secret" readOnly type="password" value={issued.clientSecret} />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void navigator.clipboard.writeText(issued.clientSecret).then(
+                  () => toast.success("Client secret copied."),
+                  () => toast.error("Could not copy the client secret."),
+                )}
+              >
+                Copy client secret
+              </Button>
+            </div>
+          ) : (
+            <>
           <div className="space-y-2">
             <Label htmlFor="m-name">Name</Label>
             <Input id="m-name" required value={form.name} onChange={set("name")} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="m-client">Client ID</Label>
-            <Input id="m-client" required value={form.clientId} onChange={set("clientId")} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="m-url">Return URL</Label>
@@ -259,15 +290,19 @@ function NewMerchantDialog({
             <Label htmlFor="m-reason">Reason</Label>
             <Input id="m-reason" required maxLength={1000} value={form.reason} onChange={set("reason")} />
           </div>
+            </>
+          )}
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>
-              Cancel
+              {issued ? "Done" : "Cancel"}
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
-              Create merchant
-            </Button>
+            {!issued && (
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+                Create merchant
+              </Button>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>

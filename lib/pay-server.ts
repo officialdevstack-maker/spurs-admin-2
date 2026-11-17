@@ -17,7 +17,7 @@ export async function payFetch(
   path: string,
   admin: SessionUser,
   request: Request,
-  init: { method?: "GET" | "POST"; body?: unknown; reason?: string; requestId?: string } = {},
+  init: { method?: "GET" | "POST" | "PUT"; body?: unknown; reason?: string; requestId?: string } = {},
 ) {
   const headers = new Headers({
     Accept: "application/json",

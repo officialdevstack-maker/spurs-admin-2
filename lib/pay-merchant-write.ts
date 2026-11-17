@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 
 import { requirePermission, requireRecentAuth } from "@/lib/admin-guard";
 import { insertAdminAudit } from "@/lib/admin-audit";
+import { accountsFetch } from "@/lib/accounts-server";
 import { getPool } from "@/lib/db";
 import { payFetch } from "@/lib/pay-server";
 import type { PermissionName } from "@/lib/permissions";
@@ -15,8 +16,32 @@ type PayMerchantBody = {
   error?: { code?: string; message?: string };
 };
 
+type IssuedCredentials = { clientId: string; clientSecret: string };
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function revokeProvisionedClient(merchantId: string, adminEmail: string, reason: string) {
+  try {
+    const response = await accountsFetch(
+      `/api/internal/admin/pay-merchants/${merchantId}/oauth-client/revoke`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-audit-reason": reason,
+          "x-admin-request-id": randomUUID(),
+        },
+        body: JSON.stringify({}),
+      },
+      adminEmail,
+    );
+    return response.ok;
+  } catch (error) {
+    console.error("Could not revoke OAuth client after failed Pay merchant creation:", error);
+    return false;
+  }
 }
 
 export async function merchantWrite(
@@ -38,6 +63,54 @@ export async function merchantWrite(
   }
   const payload = { ...values };
   delete payload.reason;
+  const requestId = randomUUID();
+
+  let credentials: IssuedCredentials | null = null;
+  let merchantId: string | null = null;
+  if (spec.action === "create") {
+    if (
+      typeof payload.name !== "string" ||
+      typeof payload.returnUrl !== "string"
+    ) {
+      return NextResponse.json({ message: "Merchant name and return URL are required." }, { status: 422 });
+    }
+    merchantId = randomUUID();
+    let accountResponse: Response;
+    try {
+      accountResponse = await accountsFetch(
+        `/api/internal/admin/pay-merchants/${merchantId}/oauth-client`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-admin-audit-reason": reason,
+            "x-admin-request-id": requestId,
+          },
+          body: JSON.stringify({ name: payload.name }),
+        },
+        guard.admin.email,
+      );
+    } catch (error) {
+      console.error("Accounts OAuth client provisioning failed:", error);
+      return NextResponse.json({ message: "Accounts service is unavailable." }, { status: 502 });
+    }
+    const accountBody: unknown = await accountResponse.json().catch(() => null);
+    const issued = isRecord(accountBody) && isRecord(accountBody.data) ? accountBody.data : null;
+    if (
+      !accountResponse.ok ||
+      !issued ||
+      typeof issued.clientId !== "string" ||
+      typeof issued.clientSecret !== "string"
+    ) {
+      return NextResponse.json(
+        { message: "Merchant credentials could not be provisioned." },
+        { status: accountResponse.status >= 400 && accountResponse.status < 500 ? accountResponse.status : 502 },
+      );
+    }
+    credentials = { clientId: issued.clientId, clientSecret: issued.clientSecret };
+    payload.id = merchantId;
+    payload.clientId = credentials.clientId;
+  }
 
   let response: Response;
   try {
@@ -45,16 +118,42 @@ export async function merchantWrite(
       method: "POST",
       body: payload,
       reason,
-      requestId: randomUUID(),
+      requestId,
     });
   } catch (error) {
     console.error("Pay merchant write failed:", error);
+    if (merchantId) {
+      const revoked = await revokeProvisionedClient(
+        merchantId,
+        guard.admin.email,
+        "Compensating revoke after failed Pay merchant creation.",
+      );
+      if (!revoked) {
+        return NextResponse.json(
+          { message: "Pay merchant creation failed and the new OAuth client could not be revoked; contact an administrator." },
+          { status: 502 },
+        );
+      }
+    }
     return NextResponse.json({ message: "Pay service is unavailable." }, { status: 502 });
   }
 
   const body = (await response.json().catch(() => ({}))) as PayMerchantBody;
   if (!response.ok) {
     const code = body.error?.code;
+    if (merchantId) {
+      const revoked = await revokeProvisionedClient(
+        merchantId,
+        guard.admin.email,
+        "Compensating revoke after rejected Pay merchant creation.",
+      );
+      if (!revoked) {
+        return NextResponse.json(
+          { message: "Pay merchant creation failed and the new OAuth client could not be revoked; contact an administrator." },
+          { status: 502 },
+        );
+      }
+    }
     if (code === "STEP_UP_REQUIRED") {
       return NextResponse.json(
         { message: "Confirm your sign-in again to perform this action.", reauthUrl: "/reauth?returnTo=%2Fpay%2Fmerchants" },
@@ -89,5 +188,8 @@ export async function merchantWrite(
     console.error("Could not write admin audit for merchant change:", error);
   }
 
-  return NextResponse.json(body, { status: response.status });
+  return NextResponse.json(
+    { ...body, ...(credentials && { credentials }) },
+    { status: response.status },
+  );
 }

@@ -71,6 +71,54 @@ export type PayMerchant = {
   paidVolume: string;
 };
 
+export type PayMerchantDetail = Pick<
+  PayMerchant,
+  "id" | "name" | "clientId" | "returnUrl" | "status" | "approvedAt" | "createdAt"
+>;
+
+export type PayMerchantWebhook = {
+  config: {
+    url: string;
+    eventTypes: string[];
+    maxAttempts: number;
+    enabled: boolean;
+    createdAt: string;
+    updatedAt: string;
+  } | null;
+  deliveries: {
+    id: string;
+    eventType: string;
+    status: "pending" | "sending" | "delivered" | "failed";
+    attemptCount: number;
+    nextAttemptAt: string;
+    lastAttemptAt: string | null;
+    lastStatusCode: number | null;
+    lastError: string | null;
+    deliveredAt: string | null;
+    createdAt: string;
+    attempts: {
+      attemptNumber: number;
+      status: "pending" | "delivered" | "failed";
+      responseStatus: number | null;
+      error: string | null;
+      attemptedAt: string;
+      completedAt: string | null;
+    }[];
+  }[];
+};
+
+export type PayMerchantOnboarding = {
+  checklist: {
+    registrationVerified: boolean;
+    ownershipVerified: boolean;
+    settlementAccountVerified: boolean;
+    riskReviewComplete: boolean;
+  };
+  dueDiligenceNotes: string;
+  updatedBy: number | null;
+  updatedAt: string | null;
+};
+
 export type PayWebhookEvent = {
   id: string;
   type: string;
@@ -132,6 +180,15 @@ export const getPayCheckout = (reference: string) =>
 export async function listPayMerchants(query: Pick<PayListQuery, "status" | "search" | "limit"> = {}) {
   return withQuery<{ data: PayMerchant[] }>("merchants", query);
 }
+
+export const getPayMerchant = (id: string) =>
+  request<{ merchant: PayMerchantDetail }>(`merchants/${encodeURIComponent(id)}`);
+
+export const getPayMerchantWebhook = (id: string) =>
+  request<PayMerchantWebhook>(`merchants/${encodeURIComponent(id)}/webhooks`);
+
+export const getPayMerchantOnboarding = (id: string) =>
+  request<PayMerchantOnboarding>(`merchants/${encodeURIComponent(id)}/onboarding`);
 
 export async function listPayWebhooks(query: Pick<PayListQuery, "status" | "limit"> = {}) {
   return withQuery<{ data: PayWebhookEvent[] }>("webhooks", query);

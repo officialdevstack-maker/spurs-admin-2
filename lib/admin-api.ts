@@ -98,19 +98,19 @@ export const updatePayProviderSettings = (
     }).then((response) => response.data);
 
 export type PayMerchantChange = {
-    merchant: { id: string; name: string; status: "pending" | "active" | "suspended" };
+  merchant: { id: string; name: string; status: "pending" | "active" | "suspended" };
+  credentials?: { clientId: string; clientSecret: string };
 };
 
 export const createPayMerchant = (input: {
-    name: string;
-    clientId: string;
-    returnUrl: string;
-    reason: string;
+  name: string;
+  returnUrl: string;
+  reason: string;
 }) =>
-    call<PayMerchantChange>("/api/admin/pay/merchants", {
-      method: "POST",
-      body: JSON.stringify(input),
-    });
+  call<PayMerchantChange>("/api/admin/pay/merchants", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 
 export const changePayMerchantStatus = (
     id: string,
@@ -121,3 +121,74 @@ export const changePayMerchantStatus = (
       method: "POST",
       body: JSON.stringify({ reason }),
     });
+
+export type MerchantCredentialStatus = {
+  clientId: string | null;
+  isActive: boolean;
+  lastUsedAt: string | null;
+};
+
+export type RotatedMerchantCredentials = {
+  clientId: string;
+  clientSecret: string;
+};
+
+export const getPayMerchantCredentials = (id: string) =>
+  call<MerchantCredentialStatus>(`/api/admin/pay/merchants/${encodeURIComponent(id)}/credentials`);
+
+export const changePayMerchantCredentials = (
+  id: string,
+  action: "rotate" | "revoke",
+  reason: string,
+) =>
+  call<RotatedMerchantCredentials | { clientId: string; isActive: false }>(
+    `/api/admin/pay/merchants/${encodeURIComponent(id)}/credentials/${action}`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+
+type MerchantWebhookSettings = { url: string; maxAttempts: number; enabled: boolean; reason: string };
+
+export const savePayMerchantWebhook = (
+  id: string,
+  input: MerchantWebhookSettings,
+  create: boolean,
+) =>
+  call<{ config: { url: string; eventTypes: string[]; maxAttempts: number; enabled: boolean }; signingSecret?: string }>(
+    `/api/admin/pay/merchants/${encodeURIComponent(id)}/webhooks`,
+    { method: create ? "POST" : "PUT", body: JSON.stringify(input) },
+  );
+
+export const rotatePayMerchantWebhookSecret = (id: string, reason: string) =>
+  call<{ signingSecret: string }>(
+    `/api/admin/pay/merchants/${encodeURIComponent(id)}/webhooks/rotate-secret`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+
+export const redeliverPayMerchantWebhook = (id: string, deliveryId: string, reason: string) =>
+  call<{ deliveryId: string; status: "pending" }>(
+    `/api/admin/pay/merchants/${encodeURIComponent(id)}/webhooks/deliveries/${encodeURIComponent(deliveryId)}/redeliver`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  );
+
+export const savePayMerchantOnboarding = (
+  id: string,
+  input: {
+    checklist: {
+      registrationVerified: boolean;
+      ownershipVerified: boolean;
+      settlementAccountVerified: boolean;
+      riskReviewComplete: boolean;
+    };
+    dueDiligenceNotes: string;
+    reason: string;
+  },
+) =>
+  call<{
+    checklist: typeof input.checklist;
+    dueDiligenceNotes: string;
+    updatedBy: number;
+    updatedAt: string;
+  }>(`/api/admin/pay/merchants/${encodeURIComponent(id)}/onboarding`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
