@@ -61,7 +61,10 @@ export type PayListQuery = {
 export type PayMerchant = {
   id: string;
   name: string;
-  status: "active" | "suspended";
+  clientId: string;
+  returnUrl: string;
+  status: "pending" | "active" | "suspended";
+  approvedAt: string | null;
   createdAt: string;
   checkoutCount: number;
   paidCheckoutCount: number;

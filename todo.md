@@ -27,8 +27,8 @@ Implement these phases in order. Later phases depend on the foundations in earli
 
 ## Phase C: Merchant management
 
-- [ ] Create merchant: name, `client_id`, return URL (must be HTTPS in production), ledger account
-- [ ] Approve, suspend and reactivate (`merchants.status`)
+- [x] Create merchant: name, `client_id`, return URL (must be HTTPS in production), ledger account
+- [x] Approve, suspend and reactivate (`merchants.status`)
 - [ ] Credential issuance with one-time secret display, rotation, revocation and last-used time
 - [ ] Webhook config per merchant: URL, signing secret, retry policy, delivery log, manual redeliver
 - [ ] Merchant onboarding checklist and due-diligence notes

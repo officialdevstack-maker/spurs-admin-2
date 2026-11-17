@@ -13,14 +13,24 @@ function getBaseUrl() {
   return new URL(url.origin);
 }
 
-export async function payFetch(path: string, admin: SessionUser, request: Request) {
+export async function payFetch(
+  path: string,
+  admin: SessionUser,
+  request: Request,
+  init: { method?: "GET" | "POST"; body?: unknown; reason?: string; requestId?: string } = {},
+) {
   const headers = new Headers({
     Accept: "application/json",
     Authorization: `Bearer ${await createPayAdminAssertion(admin, request)}`,
   });
+  if (init.body !== undefined) headers.set("Content-Type", "application/json");
+  if (init.reason) headers.set("x-admin-audit-reason", init.reason);
+  if (init.requestId) headers.set("x-admin-request-id", init.requestId);
   const target = new URL(path, getBaseUrl());
   return fetch(target, {
+    method: init.method ?? "GET",
     headers,
+    ...(init.body !== undefined && { body: JSON.stringify(init.body) }),
     cache: "no-store",
     signal: AbortSignal.timeout(30_000),
   });

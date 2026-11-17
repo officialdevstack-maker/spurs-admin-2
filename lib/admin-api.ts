@@ -95,4 +95,29 @@ export const updatePayProviderSettings = (
   call<{ data: PayProviderSettings }>("/api/admin/pay/providers", {
     method: "PUT",
     body: JSON.stringify(input),
-  }).then((response) => response.data);
+    }).then((response) => response.data);
+
+export type PayMerchantChange = {
+    merchant: { id: string; name: string; status: "pending" | "active" | "suspended" };
+};
+
+export const createPayMerchant = (input: {
+    name: string;
+    clientId: string;
+    returnUrl: string;
+    reason: string;
+}) =>
+    call<PayMerchantChange>("/api/admin/pay/merchants", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+
+export const changePayMerchantStatus = (
+    id: string,
+    action: "approve" | "suspend" | "reactivate",
+    reason: string,
+) =>
+    call<PayMerchantChange>(`/api/admin/pay/merchants/${id}/${action}`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });

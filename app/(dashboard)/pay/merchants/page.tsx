@@ -1,9 +1,27 @@
 "use client";
 
 import * as React from "react";
+import { Loader2, Plus } from "lucide-react";
+import { toast } from "sonner";
 
-import { listPayMerchants, type PayMerchant } from "@/lib/pay-api";
+import { useAuth } from "@/components/auth-provider";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { changePayMerchantStatus, createPayMerchant } from "@/lib/admin-api";
 import { formatDateTime } from "@/lib/format";
+import { listPayMerchants, type PayMerchant } from "@/lib/pay-api";
+import { hasPermission } from "@/lib/permissions";
+
+const msg = (error: unknown) => (error instanceof Error ? error.message : "Something went wrong.");
 
 function formatAmount(amount: string) {
   if (!/^\d+$/.test(amount)) return `${amount} NGN`;
@@ -12,43 +30,66 @@ function formatAmount(amount: string) {
   return `₦${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${kobo}`;
 }
 
+const STATUS_STYLE: Record<PayMerchant["status"], string> = {
+  pending: "bg-muted text-muted-foreground",
+  active: "bg-accent text-accent-foreground",
+  suspended: "bg-destructive/10 text-destructive",
+};
+
 export default function PayMerchantsPage() {
+  const { user } = useAuth();
+  const canWrite = hasPermission(user?.permissions ?? [], "pay.write");
+  const canApprove = hasPermission(user?.permissions ?? [], "pay.approve");
+
   const [status, setStatus] = React.useState("");
   const [search, setSearch] = React.useState("");
-  const [result, setResult] = React.useState<{
-    key: string;
-    rows?: PayMerchant[];
-    error?: string;
-  } | null>(null);
-  const key = `${status}\u0000${search}`;
+  const [rows, setRows] = React.useState<PayMerchant[] | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState<string | null>(null);
+  const [open, setOpen] = React.useState(false);
+  const [reload, setReload] = React.useState(0);
 
   React.useEffect(() => {
     let active = true;
+    setRows(null);
+    setError(null);
     listPayMerchants({ status: status || undefined, search: search.trim() || undefined })
-      .then((response) => {
-        if (active) setResult({ key, rows: response.data });
-      })
-      .catch((cause: unknown) => {
-        if (active) {
-          setResult({
-            key,
-            error: cause instanceof Error ? cause.message : "Something went wrong.",
-          });
-        }
-      });
+      .then((result) => active && setRows(result.data))
+      .catch((cause: unknown) => active && setError(msg(cause)));
     return () => {
       active = false;
     };
-  }, [status, search, key]);
+  }, [status, search, reload]);
 
-  const current = result?.key === key ? result : null;
+  async function act(merchant: PayMerchant, action: "approve" | "suspend" | "reactivate") {
+    const reason = window.prompt(`Reason to ${action} ${merchant.name}:`)?.trim();
+    if (!reason) return;
+    setBusy(merchant.id);
+    try {
+      await changePayMerchantStatus(merchant.id, action, reason);
+      toast.success(`${merchant.name}: ${action} done.`);
+      setReload((value) => value + 1);
+    } catch (cause) {
+      toast.error(msg(cause));
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Pay merchants</h2>
-        <p className="text-sm text-muted-foreground">Merchant status and checkout volume.</p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Pay merchants</h2>
+          <p className="text-sm text-muted-foreground">Create, approve and suspend merchants.</p>
+        </div>
+        {canWrite && (
+          <Button onClick={() => setOpen(true)}>
+            <Plus className="mr-2 size-4" /> New merchant
+          </Button>
+        )}
       </div>
+
       <div className="flex flex-wrap gap-3">
         <input
           aria-label="Search merchants"
@@ -64,43 +105,172 @@ export default function PayMerchantsPage() {
           onChange={(event) => setStatus(event.target.value)}
         >
           <option value="">All statuses</option>
+          <option value="pending">Pending</option>
           <option value="active">Active</option>
           <option value="suspended">Suspended</option>
         </select>
       </div>
-      {current?.error && <p role="alert" className="text-sm text-destructive">{current.error}</p>}
+
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+
       <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full min-w-[700px] text-left text-sm">
+        <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">Merchant</th>
               <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Checkouts</th>
               <th className="px-4 py-3 font-medium">Paid checkouts</th>
               <th className="px-4 py-3 font-medium">Paid volume</th>
               <th className="px-4 py-3 font-medium">Created</th>
+              <th className="px-4 py-3 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y">
-            {!current ? (
+            {rows === null && !error ? (
               <tr><td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>Loading merchants…</td></tr>
-            ) : current.error ? (
+            ) : error ? (
               <tr><td className="px-4 py-8 text-center text-destructive" colSpan={6}>Merchants could not be loaded.</td></tr>
-            ) : current.rows?.length ? current.rows.map((merchant) => (
-              <tr key={merchant.id}>
-                <td className="px-4 py-3 font-medium">{merchant.name}</td>
-                <td className="px-4 py-3 capitalize">{merchant.status}</td>
-                <td className="px-4 py-3 tabular-nums">{merchant.checkoutCount.toLocaleString()}</td>
-                <td className="px-4 py-3 tabular-nums">{merchant.paidCheckoutCount.toLocaleString()}</td>
-                <td className="px-4 py-3 tabular-nums">{formatAmount(merchant.paidVolume)}</td>
-                <td className="px-4 py-3 text-muted-foreground">{formatDateTime(merchant.createdAt)}</td>
-              </tr>
-            )) : (
+            ) : rows?.length ? (
+              rows.map((merchant) => (
+                <tr key={merchant.id}>
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{merchant.name}</p>
+                    <p className="text-xs text-muted-foreground">{merchant.clientId}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`rounded-full px-2 py-0.5 text-xs capitalize ${STATUS_STYLE[merchant.status]}`}>
+                      {merchant.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {merchant.paidCheckoutCount.toLocaleString()} / {merchant.checkoutCount.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">{formatAmount(merchant.paidVolume)}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{formatDateTime(merchant.createdAt)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      {merchant.status === "pending" && canApprove && (
+                        <Button size="sm" disabled={busy === merchant.id} onClick={() => act(merchant, "approve")}>
+                          Approve
+                        </Button>
+                      )}
+                      {merchant.status === "active" && canWrite && (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={busy === merchant.id}
+                          onClick={() => act(merchant, "suspend")}
+                        >
+                          Suspend
+                        </Button>
+                      )}
+                      {merchant.status === "suspended" && canApprove && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={busy === merchant.id}
+                          onClick={() => act(merchant, "reactivate")}
+                        >
+                          Reactivate
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
               <tr><td className="px-4 py-8 text-center text-muted-foreground" colSpan={6}>No merchants found.</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      <NewMerchantDialog
+        key={open ? "open" : "closed"}
+        open={open}
+        onOpenChange={setOpen}
+        onCreated={() => setReload((value) => value + 1)}
+      />
     </div>
+  );
+}
+
+function NewMerchantDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: () => void;
+}) {
+  const [form, setForm] = React.useState({ name: "", clientId: "", returnUrl: "", reason: "" });
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const set = (key: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement>) =>
+    setForm({ ...form, [key]: event.target.value });
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await createPayMerchant(form);
+      toast.success(`${form.name} was created and is waiting for approval.`);
+      onOpenChange(false);
+      onCreated();
+    } catch (cause) {
+      setError(msg(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <form onSubmit={submit} className="space-y-4">
+          <DialogHeader>
+            <DialogTitle>New merchant</DialogTitle>
+            <DialogDescription>
+              The merchant stays pending until a different admin approves it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="m-name">Name</Label>
+            <Input id="m-name" required value={form.name} onChange={set("name")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="m-client">Client ID</Label>
+            <Input id="m-client" required value={form.clientId} onChange={set("clientId")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="m-url">Return URL</Label>
+            <Input
+              id="m-url"
+              type="url"
+              required
+              placeholder="https://"
+              value={form.returnUrl}
+              onChange={set("returnUrl")}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="m-reason">Reason</Label>
+            <Input id="m-reason" required maxLength={1000} value={form.reason} onChange={set("reason")} />
+          </div>
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving && <Loader2 className="mr-2 size-4 animate-spin" />}
+              Create merchant
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
