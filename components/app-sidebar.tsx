@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ChevronsUpDown,
-  ExternalLink,
   Globe,
   LogOut,
 } from "lucide-react";
@@ -33,7 +32,6 @@ import {
 } from "@/components/ui/sidebar";
 import { firstAccessibleHref, getDashboard, groupNav } from "@/lib/dashboards";
 import { hasPermission } from "@/lib/permissions";
-import { SUBDOMAINS, subdomainUrl } from "@/lib/subdomains";
 
 export function AppSidebar() {
   const pathname = usePathname();
