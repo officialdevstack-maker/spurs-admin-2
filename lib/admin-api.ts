@@ -31,6 +31,7 @@ export type PayProviderSettings = {
   provider: "sandbox" | "flutterwave";
   flutterwaveSecretKeySet: boolean;
   flutterwaveWebhookSecretSet: boolean;
+  serviceClients: string;
 };
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -90,12 +91,13 @@ export const updatePayProviderSettings = (
     webhookSecret?: string;
     clearSecretKey?: boolean;
     clearWebhookSecret?: boolean;
+    serviceClients?: string;
   },
 ) =>
   call<{ data: PayProviderSettings }>("/api/admin/pay/providers", {
     method: "PUT",
     body: JSON.stringify(input),
-    }).then((response) => response.data);
+  }).then((response) => response.data);
 
 export type PayMerchantChange = {
   merchant: { id: string; name: string; status: "pending" | "active" | "suspended" };

@@ -9,16 +9,51 @@ import type { SessionUser } from "@/lib/session";
 
 export type PayProvider = "sandbox" | "flutterwave";
 
+const SERVICE_CLIENT_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
+
+function normaliseServiceClients(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === "string").join(",");
+  }
+  return "";
+}
+
+function validateServiceClientValue(value: string): string {
+  const cleaned = value.trim();
+  if (!cleaned) return "";
+
+  for (const entry of cleaned.split(",").map((item) => item.trim()).filter(Boolean)) {
+    const [clientId, product, extra] = entry.split("=").map((part) => part.trim());
+    if (!clientId || !product || extra !== undefined) {
+      throw new Error(`Invalid service client grant "${entry}". Use clientId=product.`);
+    }
+    if (!SERVICE_CLIENT_ID_PATTERN.test(clientId)) {
+      throw new Error(`Invalid service client ID "${clientId}".`);
+    }
+    if (product !== "wallet") {
+      throw new Error(`Service client "${clientId}" cannot act as "${product}".`);
+    }
+    if (clientId === "pay") {
+      throw new Error('The Pay client cannot be granted service access.');
+    }
+  }
+
+  return cleaned;
+}
+
 type StoredPayProviderSettings = {
   provider?: PayProvider;
   flutterwaveSecretKeyEnc?: string;
   flutterwaveWebhookSecretEnc?: string;
+  serviceClients?: string;
 };
 
 export type PayProviderSettings = {
   provider: PayProvider;
   flutterwaveSecretKeySet: boolean;
   flutterwaveWebhookSecretSet: boolean;
+  serviceClients: string;
 };
 
 async function readStored(client?: PoolClient): Promise<StoredPayProviderSettings> {
@@ -47,19 +82,23 @@ async function readStored(client?: PoolClient): Promise<StoredPayProviderSetting
     throw new Error("Stored Pay credentials have an invalid format");
   }
 
+  const serviceClients = normaliseServiceClients(stored.serviceClients);
+
   return {
     provider,
     flutterwaveSecretKeyEnc: encryptedSecretKey,
     flutterwaveWebhookSecretEnc: encryptedWebhookSecret,
+    serviceClients,
   };
 }
 
 function publicSettings(stored: StoredPayProviderSettings): PayProviderSettings {
-  const { provider, flutterwaveSecretKeyEnc, flutterwaveWebhookSecretEnc } = stored;
+  const { provider, flutterwaveSecretKeyEnc, flutterwaveWebhookSecretEnc, serviceClients } = stored;
   return {
     provider: provider ?? "sandbox",
     flutterwaveSecretKeySet: Boolean(flutterwaveSecretKeyEnc),
     flutterwaveWebhookSecretSet: Boolean(flutterwaveWebhookSecretEnc),
+    serviceClients: normaliseServiceClients(serviceClients),
   };
 }
 
@@ -68,7 +107,7 @@ export async function getPayProviderSettings(): Promise<PayProviderSettings> {
 }
 
 export async function getPayProviderConfig(): Promise<Record<string, string>> {
-  const { provider, flutterwaveSecretKeyEnc, flutterwaveWebhookSecretEnc } = await readStored();
+  const { provider, flutterwaveSecretKeyEnc, flutterwaveWebhookSecretEnc, serviceClients } = await readStored();
   return {
     PAY_PROVIDER: provider ?? "sandbox",
     PAY_FLUTTERWAVE_SECRET_KEY: flutterwaveSecretKeyEnc
@@ -77,6 +116,7 @@ export async function getPayProviderConfig(): Promise<Record<string, string>> {
     PAY_FLUTTERWAVE_WEBHOOK_SECRET: flutterwaveWebhookSecretEnc
       ? decryptSecret(flutterwaveWebhookSecretEnc)
       : "",
+    SERVICE_CLIENTS: normaliseServiceClients(serviceClients),
   };
 }
 
@@ -87,12 +127,17 @@ export async function savePayProviderSettings(
     webhookSecret?: string;
     clearSecretKey?: boolean;
     clearWebhookSecret?: boolean;
+    serviceClients?: string;
   },
   audit: { admin: SessionUser; request: Request; reason: string },
 ) {
   const secretKeyEnc = input.secretKey ? encryptSecret(input.secretKey) : null;
   const webhookSecretEnc = input.webhookSecret ? encryptSecret(input.webhookSecret) : null;
-  const value = JSON.stringify({ provider: input.provider });
+  const serviceClients = input.serviceClients !== undefined ? validateServiceClientValue(input.serviceClients) : undefined;
+  const value = JSON.stringify({
+    provider: input.provider,
+    ...(serviceClients ? { serviceClients } : {}),
+  });
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");

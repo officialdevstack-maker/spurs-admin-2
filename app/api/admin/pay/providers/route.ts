@@ -51,7 +51,8 @@ export async function PUT(request: Request) {
       (values.webhookSecret !== undefined && typeof values.webhookSecret !== "string") ||
       (values.clearSecretKey !== undefined && typeof values.clearSecretKey !== "boolean") ||
       (values.clearWebhookSecret !== undefined &&
-        typeof values.clearWebhookSecret !== "boolean")
+        typeof values.clearWebhookSecret !== "boolean") ||
+      (values.serviceClients !== undefined && typeof values.serviceClients !== "string")
     ) {
       return NextResponse.json({ message: "Invalid provider credentials." }, { status: 422 });
     }
@@ -59,12 +60,14 @@ export async function PUT(request: Request) {
     const secretKey = typeof values.secretKey === "string" ? values.secretKey.trim() : "";
     const webhookSecret =
       typeof values.webhookSecret === "string" ? values.webhookSecret.trim() : "";
+    const serviceClients = typeof values.serviceClients === "string" ? values.serviceClients.trim() : "";
     const clearSecretKey = values.clearSecretKey === true;
     const clearWebhookSecret = values.clearWebhookSecret === true;
 
     if (
       secretKey.length > 2048 ||
       webhookSecret.length > 2048 ||
+      serviceClients.length > 8192 ||
       (secretKey && clearSecretKey) ||
       (webhookSecret && clearWebhookSecret)
     ) {
@@ -72,6 +75,40 @@ export async function PUT(request: Request) {
         { message: "Credential values are invalid or too long." },
         { status: 422 },
       );
+    }
+
+    if (serviceClients) {
+      try {
+        const validated = serviceClients
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean)
+          .map((entry) => {
+            const [clientId, product, extra] = entry.split("=").map((part) => part.trim());
+            if (!clientId || !product || extra !== undefined) {
+              throw new Error(`Invalid grant: ${entry}`);
+            }
+            if (!/^[A-Za-z0-9._-]{1,64}$/.test(clientId)) {
+              throw new Error(`Invalid client ID: ${clientId}`);
+            }
+            if (product !== "wallet") {
+              throw new Error(`Unsupported product: ${product}`);
+            }
+            if (clientId === "pay") {
+              throw new Error("Pay cannot be granted service access.");
+            }
+            return `${clientId}=${product}`;
+          })
+          .join(",");
+        if (validated !== serviceClients.replace(/\s+/g, "")) {
+          throw new Error("Service client entries are invalid.");
+        }
+      } catch {
+        return NextResponse.json(
+          { message: "Service client grants are invalid. Use clientId=wallet entries." },
+          { status: 422 },
+        );
+      }
     }
 
     if (values.provider === "flutterwave") {
@@ -95,6 +132,7 @@ export async function PUT(request: Request) {
         webhookSecret,
         clearSecretKey,
         clearWebhookSecret,
+        serviceClients,
       },
       { admin: guard.admin, request, reason },
     );
