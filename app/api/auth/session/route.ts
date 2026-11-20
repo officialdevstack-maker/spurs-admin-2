@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
+import { connection, NextResponse } from "next/server";
 
 import { getAdmin } from "@/lib/session";
 
 export async function GET() {
   try {
+    await connection();
     const admin = await getAdmin();
     if (!admin) {
       return NextResponse.json({ message: "Not signed in." }, { status: 401 });
