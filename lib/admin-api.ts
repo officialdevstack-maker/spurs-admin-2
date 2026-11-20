@@ -34,6 +34,61 @@ export type PayProviderSettings = {
   serviceClients: string;
 };
 
+export type PayPolicy = {
+  fees: { cardFundingBps: number };
+  limits: {
+    perTransferKobo: string;
+    dailyDebitKobo: string;
+    maxBalanceKobo: string;
+    maxCheckoutAmountKobo: string;
+  };
+  checkout: { sessionTtlSeconds: number; attemptGraceSeconds: number };
+  rateLimits: Record<string, { limit: number; windowSeconds: number }>;
+  methods: { wallet: boolean; card: boolean; bankTransfer: boolean };
+};
+
+export type PayPolicyVersion = {
+  version: number;
+  reason: string;
+  rolledBackFrom: number | null;
+  createdAt: string;
+  createdBy: string | null;
+};
+
+export type ServiceClientRow = {
+  clientId: string;
+  product: "wallet";
+  createdAt: string;
+  revokedAt: string | null;
+  createdBy: string | null;
+};
+
+export type OidcClientCredentials = {
+  clientId: string;
+  clientSecret: string | null;
+  name: string;
+  scopes: string[];
+  isActive: boolean;
+};
+
+export type AccountsOidcClient = {
+  clientId: string;
+  name: string;
+  description: string | null;
+  logoUri: string | null;
+  type: "first_party" | "third_party";
+  isConfidential: boolean;
+  redirectUris: string[];
+  postLogoutRedirectUris: string[];
+  allowedScopes: string[];
+  backchannelLogoutUri: string | null;
+  clientCredentialsEnabled: boolean;
+  isActive: boolean;
+  lastUsedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -97,6 +152,85 @@ export const updatePayProviderSettings = (
   call<{ data: PayProviderSettings }>("/api/admin/pay/providers", {
     method: "PUT",
     body: JSON.stringify(input),
+  }).then((response) => response.data);
+
+export const getPayPolicy = () =>
+  call<{ data: { version: number; config: PayPolicy } }>("/api/admin/pay/policy")
+    .then((response) => response.data);
+export const savePayPolicy = (config: PayPolicy, reason: string) =>
+  call<{ data: { version: number; config: PayPolicy } }>("/api/admin/pay/policy", {
+    method: "PUT",
+    body: JSON.stringify({ config, reason }),
+  }).then((response) => response.data);
+export const listPayPolicyVersions = () =>
+  call<{ data: PayPolicyVersion[] }>("/api/admin/pay/policy/versions")
+    .then((response) => response.data);
+export const rollbackPayPolicy = (version: number, reason: string) =>
+  call<{ data: { version: number; config: PayPolicy } }>("/api/admin/pay/policy/rollback", {
+    method: "POST",
+    body: JSON.stringify({ version, reason }),
+  }).then((response) => response.data);
+export const listServiceClients = () =>
+  call<{ data: ServiceClientRow[] }>("/api/admin/pay/service-clients")
+    .then((response) => response.data);
+export const addServiceClient = (input: { clientId: string; product: "wallet"; reason: string }) =>
+  call<{ data: ServiceClientRow[] }>("/api/admin/pay/service-clients", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }).then((response) => response.data);
+export const revokeServiceClient = (clientId: string, reason: string) =>
+  call<{ data: { clientId: string; revoked: boolean } }>(
+    `/api/admin/pay/service-clients/${encodeURIComponent(clientId)}/revoke`,
+    { method: "POST", body: JSON.stringify({ reason }) },
+  ).then((response) => response.data);
+
+export const createAccountsOidcClient = (input: {
+  name: string;
+  redirectUris: string[];
+  postLogoutRedirectUris: string[];
+  backchannelLogoutUri?: string;
+  scopes?: string[];
+  firstParty: boolean;
+  public: boolean;
+  clientCredentials: boolean;
+  service: boolean;
+  reason: string;
+}) =>
+  call<{ data: OidcClientCredentials }>("/api/admin/accounts/oidc-clients", {
+    method: "POST",
+    body: JSON.stringify(input),
+  }).then((response) => response.data);
+
+export const listAccountsOidcClients = () =>
+  call<{ data: AccountsOidcClient[] }>("/api/admin/accounts/oidc-clients")
+    .then((response) => response.data);
+
+export const getAccountsOidcClient = (clientId: string) =>
+  call<{ data: AccountsOidcClient }>(`/api/admin/accounts/oidc-clients/${encodeURIComponent(clientId)}`)
+    .then((response) => response.data);
+
+export const updateAccountsOidcClient = (
+  clientId: string,
+  changes: {
+    name?: string;
+    redirectUris?: string[];
+    postLogoutRedirectUris?: string[];
+    backchannelLogoutUri?: string | null;
+    scopes?: string[];
+    firstParty?: boolean;
+    isActive?: boolean;
+    reason: string;
+  },
+) =>
+  call<{ data: AccountsOidcClient }>(`/api/admin/accounts/oidc-clients/${encodeURIComponent(clientId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(changes),
+  }).then((response) => response.data);
+
+export const deactivateAccountsOidcClient = (clientId: string, reason: string) =>
+  call<{ data: AccountsOidcClient }>(`/api/admin/accounts/oidc-clients/${encodeURIComponent(clientId)}`, {
+    method: "DELETE",
+    body: JSON.stringify({ reason }),
   }).then((response) => response.data);
 
 export type PayMerchantChange = {

@@ -6,6 +6,8 @@ import { insertAdminAudit } from "@/lib/admin-audit";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import { getPool } from "@/lib/db";
 import type { SessionUser } from "@/lib/session";
+import { getActivePolicy } from "@/lib/pay-policy";
+import { getServiceClientsEnv } from "@/lib/pay-service-clients";
 
 export type PayProvider = "sandbox" | "flutterwave";
 
@@ -107,7 +109,10 @@ export async function getPayProviderSettings(): Promise<PayProviderSettings> {
 }
 
 export async function getPayProviderConfig(): Promise<Record<string, string>> {
-  const { provider, flutterwaveSecretKeyEnc, flutterwaveWebhookSecretEnc, serviceClients } = await readStored();
+  const { provider, flutterwaveSecretKeyEnc, flutterwaveWebhookSecretEnc } = await readStored();
+  const activePolicy = await getActivePolicy();
+  const managedServiceClients = await getServiceClientsEnv();
+  const policy = activePolicy.config;
   return {
     PAY_PROVIDER: provider ?? "sandbox",
     PAY_FLUTTERWAVE_SECRET_KEY: flutterwaveSecretKeyEnc
@@ -116,7 +121,16 @@ export async function getPayProviderConfig(): Promise<Record<string, string>> {
     PAY_FLUTTERWAVE_WEBHOOK_SECRET: flutterwaveWebhookSecretEnc
       ? decryptSecret(flutterwaveWebhookSecretEnc)
       : "",
-    SERVICE_CLIENTS: normaliseServiceClients(serviceClients),
+    SERVICE_CLIENTS: managedServiceClients,
+    PAY_POLICY: JSON.stringify({ version: activePolicy.version, ...policy }),
+    PAY_CARD_FUNDING_BPS: String(policy.fees.cardFundingBps),
+    PAY_PER_TRANSFER_KOBO: policy.limits.perTransferKobo,
+    PAY_DAILY_DEBIT_KOBO: policy.limits.dailyDebitKobo,
+    PAY_MAX_BALANCE_KOBO: policy.limits.maxBalanceKobo,
+    PAY_CHECKOUT_MAX_AMOUNT_KOBO: policy.limits.maxCheckoutAmountKobo,
+    PAY_CHECKOUT_SESSION_TTL_SECONDS: String(policy.checkout.sessionTtlSeconds),
+    PAY_BANK_TRANSFER_GRACE_SECONDS: String(policy.checkout.attemptGraceSeconds),
+    PAY_CARD_TOKENIZATION: policy.methods.card ? "true" : "false",
   };
 }
 
