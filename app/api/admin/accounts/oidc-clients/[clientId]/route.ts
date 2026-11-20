@@ -47,7 +47,10 @@ export async function GET(request: Request, context: RouteContext) {
   if ("error" in guard) return guard.error;
   const { clientId } = await context.params;
   try {
-    const { responseBody, status } = await callAccounts(clientId, "GET", guard.admin.email);
+    const { response, responseBody, status } = await callAccounts(clientId, "GET", guard.admin.email);
+    if (response.status === 401 || response.status === 403) {
+      return NextResponse.json({ message: "Accounts service credentials rejected." }, { status: 502 });
+    }
     return NextResponse.json(responseBody, { status, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Could not load Accounts OIDC client:", error);
@@ -97,6 +100,9 @@ export async function PATCH(request: Request, context: RouteContext) {
       reason,
     );
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return NextResponse.json({ message: "Accounts service credentials rejected." }, { status: 502 });
+      }
       const message = isRecord(responseBody) && typeof responseBody.message === "string"
         ? responseBody.message
         : "OIDC client could not be updated.";
@@ -150,6 +156,9 @@ export async function DELETE(request: Request, context: RouteContext) {
       reason,
     );
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        return NextResponse.json({ message: "Accounts service credentials rejected." }, { status: 502 });
+      }
       const message = isRecord(responseBody) && typeof responseBody.message === "string"
         ? responseBody.message
         : "OIDC client could not be deactivated.";

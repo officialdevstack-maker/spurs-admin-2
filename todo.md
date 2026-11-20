@@ -36,6 +36,7 @@ Implement these phases in order. Later phases depend on the foundations in earli
 
 ## Phase D: Service clients and access
 
+- [x] Accounts OIDC clients: list, register, edit and deactivate in Admin 2 (secrets shown once)
 - [ ] Manage which Accounts clients can call `/api/service/*`, and their scopes (`pay:service`, `pay:checkout`), replacing the `SERVICE_CLIENTS` env var
 - [ ] Keep the guards: Pay's own client and the `pay` product can never be granted
 - [ ] View and revoke active service tokens (introspection cache is 30s)

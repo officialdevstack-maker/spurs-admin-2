@@ -159,7 +159,7 @@ export default function OidcClientsPage() {
   }
 
   async function deactivate(client: AccountsOidcClient) {
-    if (!window.confirm(`Deactivate ${client.name}? Its record and grants will be retained.`)) return;
+    if (!window.confirm(`Deactivate ${client.name}? Its record and consent grants will be retained. Previously issued access tokens can remain valid until they expire.`)) return;
     const reason = window.prompt(`Reason for deactivating ${client.name}:`)?.trim();
     if (!reason) return;
     setBusy(true);

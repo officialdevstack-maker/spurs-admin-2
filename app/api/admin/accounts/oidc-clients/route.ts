@@ -86,6 +86,9 @@ export async function POST(request: Request) {
 
   const accountBody: unknown = await response.json().catch(() => null);
   if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      return NextResponse.json({ message: "Accounts service credentials rejected." }, { status: 502 });
+    }
     const message = isRecord(accountBody) && typeof accountBody.message === "string"
       ? accountBody.message
       : "OIDC client could not be registered.";
@@ -115,6 +118,10 @@ export async function POST(request: Request) {
         clientId: data.clientId,
         name,
         scopes,
+        redirectUris,
+        postLogoutRedirectUris,
+        backchannelLogoutUri: body.backchannelLogoutUri,
+        firstParty: body.firstParty,
         clientCredentials: body.clientCredentials || body.service,
         public: body.public,
       },
@@ -131,12 +138,17 @@ export async function GET(request: Request) {
   if ("error" in guard) return guard.error;
   try {
     const response = await accountsFetch("/api/internal/admin/oidc-clients", {}, guard.admin.email);
-    const body = await response.text();
-    const status = response.status === 401 || response.status === 403 ? 502 : response.status;
-    return new NextResponse(body, {
-      status,
-      headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
-    });
+    if (response.status === 401 || response.status === 403) {
+      return NextResponse.json({ message: "Accounts service credentials rejected." }, { status: 502 });
+    }
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message = isRecord(body) && typeof body.message === "string"
+        ? body.message
+        : "Accounts OIDC clients are unavailable.";
+      return NextResponse.json({ message }, { status: response.status, headers: { "Cache-Control": "no-store" } });
+    }
+    return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Could not list Accounts OIDC clients:", error);
     return NextResponse.json({ message: "Accounts service is unavailable." }, { status: 502 });
