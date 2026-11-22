@@ -146,3 +146,11 @@
     font: inherit;
   }
 }
+
+.dash-stats-items:not(:last-child) {
+  @apply border-r border-muted-foreground/50 m-2;
+}
+
+.dash-stats-items:last-child {
+  @apply border-r-0;
+}

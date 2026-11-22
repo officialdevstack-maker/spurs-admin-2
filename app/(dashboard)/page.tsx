@@ -1,9 +1,40 @@
-import { ExternalLink } from "lucide-react";
+'use client'
+import DefaultStatsCard from "@/components/default-stats-card";
+import { listUsers } from "@/lib/accounts-api";
+import { listAccountsOidcClients, listAdmins } from "@/lib/admin-api";
+import { useEffect, useState } from "react";
 
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SUBDOMAINS, subdomainUrl } from "@/lib/subdomains";
+export default  function DashboardPage() {
+  const [data, setData] = useState<Record<string, number>>({ totalAdminUsers: 0, totalOidcUsers: 0, totalUsers: 0 })
 
-export default function DashboardPage() {
+  useEffect( () => {
+    try {
+      Promise.all([
+        listAccountsOidcClients(),
+        listUsers(),
+        listAdmins(),
+
+      ])
+      .then(([res1, res2, res3]) => {
+        return [
+          res1?.length || 0,
+          res2?.data?.length || 0,
+          res3?.data?.length || 0
+        ]
+      })
+      .then(([totalOidcUsers, totalUsers, totalAdminUsers]) => {
+        setData({
+          totalUsers,
+          totalAdminUsers,
+          totalOidcUsers,
+        })
+      })
+    } catch{
+
+    }
+    return;
+  }, [])
+
   return (
     <div className="space-y-6">
       <div>
@@ -11,25 +42,8 @@ export default function DashboardPage() {
         <p className="text-sm text-muted-foreground">Overview of every subdomain you manage.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {SUBDOMAINS.map((s) => (
-          <a key={s.slug} href={subdomainUrl(s.slug)} target="_blank" rel="noopener noreferrer">
-            <Card className="rounded-2xl ring-0 transition-shadow hover:shadow-md">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between text-base">
-                  <span className="flex items-center gap-3">
-                    <span className="grid size-10 place-items-center rounded-full bg-accent text-accent-foreground">
-                      {s.name.slice(0, 1)}
-                    </span>
-                    {s.name}
-                  </span>
-                  <ExternalLink className="size-4 text-muted-foreground" />
-                </CardTitle>
-                <CardDescription>{subdomainUrl(s.slug)}</CardDescription>
-              </CardHeader>
-            </Card>
-          </a>
-        ))}
+      <div className="container">
+        <DefaultStatsCard {...data as any} />
       </div>
     </div>
   );
