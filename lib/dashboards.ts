@@ -1,6 +1,7 @@
 import {
   Bell,
   CreditCard,
+  Film,
   LayoutDashboard,
   KeyRound,
   Plug,
@@ -11,6 +12,7 @@ import {
   Store,
   Users,
   Wallet,
+  ListVideo,
   Webhook,
   type LucideIcon,
 } from "lucide-react";
@@ -162,6 +164,32 @@ export const DASHBOARDS: Dashboard[] = [
         href: "/pay/service-clients",
         icon: Plug,
         requiredPermission: "pay.service_clients.manage",
+      },
+    ],
+  },
+  {
+    slug: "blockbusters",
+    name: "Block Busters",
+    description: "Block Busters content operations",
+    basePath: "/blockbusters",
+    nav: [
+      {
+        title: "Overview",
+        href: "/blockbusters",
+        icon: LayoutDashboard,
+        requiredPermission: "blockbusters.view",
+      },
+      {
+        title: "Titles",
+        href: "/blockbusters/titles",
+        icon: Film,
+        requiredPermission: "blockbusters.view",
+      },
+      {
+        title: "Transcode queue",
+        href: "/blockbusters/queue",
+        icon: ListVideo,
+        requiredPermission: "blockbusters.view",
       },
     ],
   },

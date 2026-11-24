@@ -86,3 +86,16 @@ Implement these phases in order. Later phases depend on the foundations in earli
 - Which actions need two people (refunds, provider switch, credential rotation)
 - Who approves external merchants
 - Whether Admin 2 reads Pay's database or uses only Pay's API (recommended: API only, matching the Wallet rule)
+
+## Block Busters integration (Phase 1)
+
+- [x] Add the `blockbusters` dashboard, permission catalog entries, role seed migration and API-only signed identity client
+- [x] Add read proxy, audited write proxy, title overview/editor, direct-to-B2 upload UI and transcode queue
+- [x] Add Block Busters internal admin API, private/public B2 support, schema migration and worker revalidation endpoint
+- [x] Add the ffmpeg worker with safe job claiming, retries and stuck-job recovery
+- [ ] Configure production RSA keys, Block Busters API URL, B2 buckets/CORS and worker credentials
+- [ ] Apply migration `011_blockbusters_foundations.sql` in Admin 2 and the Block Busters Drizzle migration
+- [ ] Deploy the Block Busters app and worker; validate a small real upload/transcode before publishing
+
+Phase 2 collections, franchises and comment moderation remain deferred. Admin 2
+must not query Block Busters' database or hold its B2 keys.

@@ -15,6 +15,8 @@ ACCOUNTS_API_URL=https://api.example.com
 ACCOUNTS_INTERNAL_SECRET=same-value-as-INTERNAL_SHARED_SECRET-on-the-accounts-backend
 PAY_API_URL=https://pay.example.com
 PAY_ADMIN_IDENTITY_PRIVATE_KEY=replace-with-RSA-PKCS8-private-key-escaped-newlines
+BLOCKBUSTERS_API_URL=https://blockbusters.example.com
+BLOCKBUSTERS_ADMIN_IDENTITY_PRIVATE_KEY=replace-with-RSA-PKCS8-private-key-escaped-newlines
 ```
 
 For HTTP testing with a production build, set `SESSION_COOKIE_INSECURE=true` in `.env.local`.
@@ -53,6 +55,12 @@ as `ADMIN_IDENTITY_PUBLIC_KEY` in Pay. Do not send either key to browser code or
 them. Admin 2 continues to use its normal per-admin email/password sign-in. Pay provider
 changes require a password re-check if the last sign-in was more than five minutes ago,
 and record a reason plus redacted before/after values in the audit log.
+
+Block Busters administration follows the same API-only trust boundary: Admin 2 signs
+short-lived per-admin identities with `BLOCKBUSTERS_ADMIN_IDENTITY_PRIVATE_KEY`, and
+Block Busters verifies them with `ADMIN_IDENTITY_PUBLIC_KEY`. Admin 2 never connects
+to the Block Busters database and does not hold B2 credentials. The Admin 2 audit log
+records title, upload, publish, delete and retry actions.
 
 The admin panel uses its normal per-admin email/password sign-in against the PostgreSQL `users`
 table. Pay receives short-lived signed identities for that specific Admin 2 user. To apply pending migrations from the
