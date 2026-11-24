@@ -62,6 +62,7 @@ export default function BlockbustersTitlePage() {
   const [message, setMessage] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [orphanedKeys, setOrphanedKeys] = React.useState<string[]>([]);
+  const [deletedNotice, setDeletedNotice] = React.useState(false);
 
   const load = React.useCallback(async () => {
     try {
@@ -178,14 +179,17 @@ export default function BlockbustersTitlePage() {
   async function deleteTitle() {
     setError(null);
     try {
-      const result = await blockbustersRequest<{ data: { orphanedKeys: string[] } }>(`titles/${params.id}`, {
+      const result = await blockbustersRequest<{ data: { orphanedKeys: string[] }; revalidated: boolean }>(`titles/${params.id}`, {
         write: true,
         method: "DELETE",
         body: { confirmation, reason },
       });
-      if (result.data.orphanedKeys.length) {
+      if (result.data.orphanedKeys.length || !result.revalidated) {
         setOrphanedKeys(result.data.orphanedKeys);
-        setMessage("The title was deleted, but some storage objects could not be removed.");
+        setDeletedNotice(true);
+        setMessage(result.data.orphanedKeys.length
+          ? "The title was deleted, but some storage objects could not be removed."
+          : "The title was deleted, but the live title cache could not be refreshed.");
       } else {
         router.push("/blockbusters/titles");
       }
@@ -199,11 +203,12 @@ export default function BlockbustersTitlePage() {
   }
 
   if (!title) {
-    if (orphanedKeys.length) {
+    if (deletedNotice) {
       return (
         <div className="space-y-4">
           <p role="alert" className="text-sm text-destructive">
-            Title deleted. Storage cleanup failed for: {orphanedKeys.join(", ")}
+            {message}
+            {orphanedKeys.length > 0 && ` Storage cleanup failed for: ${orphanedKeys.join(", ")}`}
           </p>
           <Link className="text-sm text-primary hover:underline" href="/blockbusters/titles">Return to titles</Link>
         </div>

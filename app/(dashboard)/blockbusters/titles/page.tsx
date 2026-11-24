@@ -24,6 +24,7 @@ export default function BlockbustersTitlesPage() {
   const [genre, setGenre] = React.useState("");
   const [type, setType] = React.useState("");
   const [published, setPublished] = React.useState("");
+  const [sort, setSort] = React.useState("updated");
   const [nextCursor, setNextCursor] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -31,7 +32,7 @@ export default function BlockbustersTitlesPage() {
   const load = React.useCallback(async (cursor?: string, append = false) => {
     setLoading(true);
     setError(null);
-    const params = new URLSearchParams({ sort: "updated" });
+    const params = new URLSearchParams({ sort });
     if (query.trim()) params.set("q", query.trim());
     if (genre.trim()) params.set("genre", genre.trim());
     if (type) params.set("type", type);
@@ -46,11 +47,11 @@ export default function BlockbustersTitlesPage() {
     } finally {
       setLoading(false);
     }
-  }, [genre, published, query, type]);
+  }, [genre, published, query, sort, type]);
 
   React.useEffect(() => {
     let active = true;
-    const params = new URLSearchParams({ sort: "updated" });
+    const params = new URLSearchParams({ sort });
     if (query.trim()) params.set("q", query.trim());
     if (genre.trim()) params.set("genre", genre.trim());
     if (type) params.set("type", type);
@@ -69,7 +70,7 @@ export default function BlockbustersTitlesPage() {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [genre, published, query, type]);
+  }, [genre, published, query, sort, type]);
 
   return (
     <div className="space-y-6">
@@ -84,7 +85,7 @@ export default function BlockbustersTitlesPage() {
         </Button>
       </div>
       <form
-        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_12rem_10rem_10rem_auto]"
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_12rem_10rem_10rem_10rem_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           void load();
@@ -101,6 +102,12 @@ export default function BlockbustersTitlesPage() {
           <option value="">All states</option>
           <option value="true">Published</option>
           <option value="false">Draft</option>
+        </select>
+        <select aria-label="Sort titles" className="h-10 rounded-md border bg-background px-3 text-sm" onChange={(event) => setSort(event.target.value)} value={sort}>
+          <option value="updated">Recently updated</option>
+          <option value="created">Recently created</option>
+          <option value="title">Title A–Z</option>
+          <option value="year">Year</option>
         </select>
         <Button type="submit" variant="outline"><Search className="size-4" />Search</Button>
       </form>
