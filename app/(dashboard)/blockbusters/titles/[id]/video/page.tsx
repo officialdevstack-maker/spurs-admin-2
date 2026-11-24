@@ -60,6 +60,7 @@ export default function BlockbustersVideoPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
   const activeXhrs = React.useRef<XMLHttpRequest[]>([]);
+  const activePlan = React.useRef<UploadPlan | null>(null);
   const cancelled = React.useRef(false);
 
   const pollVideo = React.useCallback(async (videoId: string) => {
@@ -102,6 +103,7 @@ export default function BlockbustersVideoPage() {
         body: { titleId: id, filename: file.name, size: file.size, contentType },
       });
       const plan = initialized.data;
+      activePlan.current = plan;
       setVideo({ id: plan.videoId, status: "uploading", attempts: 0, durationSec: null, errorMessage: null });
       if (plan.uploadUrl) {
         await putFile(plan.uploadUrl, file, contentType, (loaded) => {
@@ -150,6 +152,7 @@ export default function BlockbustersVideoPage() {
           method: "POST",
           body: { videoId: plan.videoId, uploadId: plan.uploadId, parts: results },
         });
+        activePlan.current = null;
       }
       if (plan.uploadUrl) {
         await blockbustersRequest("uploads/complete", {
@@ -157,12 +160,26 @@ export default function BlockbustersVideoPage() {
           method: "POST",
           body: { videoId: plan.videoId, uploadId: null, parts: [] },
         });
+        activePlan.current = null;
       }
       setProgress(100);
       setMessage("Upload complete. Transcoding has started.");
       await pollVideo(plan.videoId);
     } catch (cause) {
       setError(getErrorMessage(cause));
+      const plan = activePlan.current;
+      if (plan) {
+        try {
+          await blockbustersRequest("uploads/abort", {
+            write: true,
+            method: "POST",
+            body: { videoId: plan.videoId },
+          });
+        } catch (cleanupError) {
+          setError(`${getErrorMessage(cause)} Cleanup also failed: ${getErrorMessage(cleanupError)}`);
+        }
+        activePlan.current = null;
+      }
     } finally {
       setBusy(false);
       activeXhrs.current = [];

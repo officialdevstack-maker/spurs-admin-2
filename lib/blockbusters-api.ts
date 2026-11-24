@@ -16,12 +16,15 @@ export async function blockbustersRequest<T>(
     body?: unknown;
   } = {},
 ): Promise<T> {
+  const headers = new Headers();
+  if (options.body !== undefined) headers.set("Content-Type", "application/json");
+  if (options.write) headers.set("Idempotency-Key", crypto.randomUUID());
   const response = await fetch(
     `${options.write ? "/api/admin/blockbusters" : "/api/blockbusters"}/${path}`,
     {
       method: options.method ?? "GET",
+      headers,
       ...(options.body !== undefined && {
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(options.body),
       }),
       cache: "no-store",

@@ -62,6 +62,11 @@ Block Busters verifies them with `ADMIN_IDENTITY_PUBLIC_KEY`. Admin 2 never conn
 to the Block Busters database and does not hold B2 credentials. The Admin 2 audit log
 records title, upload, publish, delete and retry actions.
 
+Generate and configure a matching Block Busters key pair using the same OpenSSL
+commands above, but use separate output filenames. Keep the private key only in
+Admin 2's environment and set the matching public key as
+`ADMIN_IDENTITY_PUBLIC_KEY` in Block Busters.
+
 The admin panel uses its normal per-admin email/password sign-in against the PostgreSQL `users`
 table. Pay receives short-lived signed identities for that specific Admin 2 user. To apply pending migrations from the
 `migrations` directory to the configured database, run:

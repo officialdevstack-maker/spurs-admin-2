@@ -26,7 +26,7 @@ export default function BlockbustersTitlesPage() {
   const [published, setPublished] = React.useState("");
   const [nextCursor, setNextCursor] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
 
   const load = React.useCallback(async (cursor?: string, append = false) => {
     setLoading(true);
@@ -49,8 +49,27 @@ export default function BlockbustersTitlesPage() {
   }, [genre, published, query, type]);
 
   React.useEffect(() => {
-    void load();
-  }, [load]);
+    let active = true;
+    const params = new URLSearchParams({ sort: "updated" });
+    if (query.trim()) params.set("q", query.trim());
+    if (genre.trim()) params.set("genre", genre.trim());
+    if (type) params.set("type", type);
+    if (published) params.set("published", published);
+    blockbustersRequest<{ data: Title[]; nextCursor: string | null }>(`titles?${params}`)
+      .then((result) => {
+        if (!active) return;
+        setTitles(result.data);
+        setNextCursor(result.nextCursor);
+        setError(null);
+      })
+      .catch((cause: unknown) => {
+        if (active) setError(getErrorMessage(cause));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, [genre, published, query, type]);
 
   return (
     <div className="space-y-6">

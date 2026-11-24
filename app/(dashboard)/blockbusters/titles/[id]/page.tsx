@@ -61,6 +61,7 @@ export default function BlockbustersTitlePage() {
   const [error, setError] = React.useState<string | null>(null);
   const [message, setMessage] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
+  const [orphanedKeys, setOrphanedKeys] = React.useState<string[]>([]);
 
   const load = React.useCallback(async () => {
     try {
@@ -82,8 +83,27 @@ export default function BlockbustersTitlePage() {
   }, [params.id]);
 
   React.useEffect(() => {
-    void load();
-  }, [load]);
+    let active = true;
+    blockbustersRequest<{ data: Title }>(`titles/${params.id}`)
+      .then((result) => {
+        if (!active) return;
+        setTitle(result.data);
+        setValues({
+          title: result.data.title,
+          slug: result.data.slug,
+          year: String(result.data.year),
+          rating: result.data.rating === null ? "" : String(result.data.rating),
+          genre: result.data.genre,
+          type: result.data.type,
+          durationMin: result.data.durationMin === null ? "" : String(result.data.durationMin),
+          description: result.data.description ?? "",
+        });
+      })
+      .catch((cause: unknown) => {
+        if (active) setError(getErrorMessage(cause));
+      });
+    return () => { active = false; };
+  }, [params.id]);
 
   function updateValue(key: keyof typeof values, value: string) {
     setValues((current) => ({ ...current, [key]: value }));
@@ -95,7 +115,7 @@ export default function BlockbustersTitlePage() {
     setError(null);
     setMessage(null);
     try {
-      const result = await blockbustersRequest<{ data: Title }>(`titles/${params.id}`, {
+      const result = await blockbustersRequest<{ data: Title; revalidated: boolean }>(`titles/${params.id}`, {
         write: true,
         method: "PATCH",
         body: {
@@ -106,7 +126,7 @@ export default function BlockbustersTitlePage() {
         },
       });
       setTitle((current) => current ? { ...current, ...result.data } : result.data);
-      setMessage(result.data.revalidated === false
+      setMessage(result.revalidated === false
         ? "Saved, but the live title cache could not be refreshed."
         : "Title saved.");
     } catch (cause) {
@@ -141,13 +161,15 @@ export default function BlockbustersTitlePage() {
         { write: true, method: "POST", body: { titleId: params.id, kind, contentType: file.type, size: file.size } },
       );
       await uploadFile(signed.data.uploadUrl, file);
-      await blockbustersRequest(`titles/${params.id}`, {
+      const result = await blockbustersRequest<{ revalidated: boolean }>(`titles/${params.id}`, {
         write: true,
         method: "PATCH",
         body: { [kind === "poster" ? "posterKey" : "backdropKey"]: signed.data.key },
       });
       await load();
-      setMessage(`${kind === "poster" ? "Poster" : "Backdrop"} uploaded.`);
+      setMessage(result.revalidated === false
+        ? "Artwork uploaded, but the live title cache could not be refreshed."
+        : `${kind === "poster" ? "Poster" : "Backdrop"} uploaded.`);
     } catch (cause) {
       setError(getErrorMessage(cause));
     }
@@ -156,12 +178,17 @@ export default function BlockbustersTitlePage() {
   async function deleteTitle() {
     setError(null);
     try {
-      await blockbustersRequest(`titles/${params.id}`, {
+      const result = await blockbustersRequest<{ data: { orphanedKeys: string[] } }>(`titles/${params.id}`, {
         write: true,
         method: "DELETE",
         body: { confirmation, reason },
       });
-      router.push("/blockbusters/titles");
+      if (result.data.orphanedKeys.length) {
+        setOrphanedKeys(result.data.orphanedKeys);
+        setMessage("The title was deleted, but some storage objects could not be removed.");
+      } else {
+        router.push("/blockbusters/titles");
+      }
     } catch (cause) {
       if (cause instanceof BlockbustersApiError && cause.reauthUrl) {
         router.push(cause.reauthUrl);
@@ -172,6 +199,16 @@ export default function BlockbustersTitlePage() {
   }
 
   if (!title) {
+    if (orphanedKeys.length) {
+      return (
+        <div className="space-y-4">
+          <p role="alert" className="text-sm text-destructive">
+            Title deleted. Storage cleanup failed for: {orphanedKeys.join(", ")}
+          </p>
+          <Link className="text-sm text-primary hover:underline" href="/blockbusters/titles">Return to titles</Link>
+        </div>
+      );
+    }
     return <p className="text-sm text-muted-foreground">{error ?? "Loading title…"}</p>;
   }
 

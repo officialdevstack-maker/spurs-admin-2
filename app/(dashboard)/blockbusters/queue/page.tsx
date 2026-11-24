@@ -34,10 +34,26 @@ export default function BlockbustersQueuePage() {
   }, []);
 
   React.useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => void load(), 15_000);
-    return () => window.clearInterval(timer);
-  }, [load]);
+    let active = true;
+    const refresh = () => {
+      void blockbustersRequest<{ data: QueueVideo[] }>("queue")
+        .then((result) => {
+          if (active) {
+            setVideos(result.data);
+            setError(null);
+          }
+        })
+        .catch((cause: unknown) => {
+          if (active) setError(getErrorMessage(cause));
+        });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   async function retry(videoId: string) {
     try {

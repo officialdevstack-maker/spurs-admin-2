@@ -8,6 +8,7 @@ import { getPool } from "@/lib/db";
 import { canAccessDashboard, type PermissionName } from "@/lib/permissions";
 
 const ID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const UUID = new RegExp(`^${ID}$`, "i");
 
 type WriteRule = {
   permission: PermissionName;
@@ -86,7 +87,7 @@ async function handler(
     return NextResponse.json({ message: "You do not have access to Block Busters." }, { status: 403, headers: { "Cache-Control": "no-store" } });
   }
   if (rule.stepUp) {
-    const stepUp = requireRecentAuth(guard.admin, "/blockbusters/titles");
+    const stepUp = requireRecentAuth(guard.admin, `/blockbusters/titles/${path[1]}`);
     if (stepUp) return stepUp;
   }
   const rawBody: unknown = await request.json().catch(() => null);
@@ -110,7 +111,8 @@ async function handler(
   }
 
   const reason = suppliedReason || rule.action.replaceAll(".", " ");
-  const requestId = randomUUID();
+  const idempotencyKey = request.headers.get("idempotency-key");
+  const requestId = idempotencyKey && UUID.test(idempotencyKey) ? idempotencyKey : randomUUID();
   let upstream: Response;
   try {
     upstream = await blockbustersFetch(
@@ -156,25 +158,27 @@ async function handler(
     (typeof body.titleId === "string" ? body.titleId : "unknown");
   const resourceType =
     subpath.startsWith("uploads/") || subpath.startsWith("videos/") ? "video" : rule.resource;
-  try {
-    const client = await getPool().connect();
+  if (responseBody.idempotent !== true) {
     try {
-      await insertAdminAudit(client, {
-        admin: guard.admin,
-        request,
-        action: rule.action,
-        resource: `blockbusters.${resourceType}:${resourceId}`,
-        reason,
-        before: responseBody.before === null || responseBody.before === undefined
-          ? null
-          : auditValue(responseBody.before) as Record<string, unknown>,
-        after: auditValue(responseBody.data) as Record<string, unknown>,
-      });
-    } finally {
-      client.release();
+      const client = await getPool().connect();
+      try {
+        await insertAdminAudit(client, {
+          admin: guard.admin,
+          request,
+          action: rule.action,
+          resource: `blockbusters.${resourceType}:${resourceId}`,
+          reason,
+          before: responseBody.before === null || responseBody.before === undefined
+            ? null
+            : auditValue(responseBody.before) as Record<string, unknown>,
+          after: auditValue(responseBody.data) as Record<string, unknown>,
+        });
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error("Could not write admin audit for Block Busters action:", error);
     }
-  } catch (error) {
-    console.error("Could not write admin audit for Block Busters action:", error);
   }
 
   return NextResponse.json(responseBody, {
